@@ -170,12 +170,24 @@ int setup_ib() {
     check(ib_res.cq != NULL, "Failed to create cq");
 
     /* create qp (queue pair) */
+    /*
+     * refer to https://www.rdmamojo.com/2012/12/21/ibv_create_qp/
+     *
+     * for max_send_wr and max_recv_wr
+     *
+     * the maximum number of outstanding Work Requests that can be
+     * posted to the Send/receive Queue in that Queue Pair. Value can be
+     * [0..dev_cap.max_qp_wr]. There may be RDMA devices that for
+     * specific transport types may support less outstanding Work
+     * Requests than the maximum reported value.
+     *
+     */
     struct ibv_qp_init_attr qp_init_attr = {
         .send_cq = ib_res.cq,
         .recv_cq = ib_res.cq,
         .cap = {
-            .max_send_wr = ib_res.dev_attr.max_qp_wr,
-            .max_recv_wr = ib_res.dev_attr.max_qp_wr,
+            .max_send_wr = 2, // [0..ib_res.dev_attr.max_qp_wr]
+            .max_recv_wr = 2, // [0..ib_res.dev_attr.max_qp_wr]
             .max_send_sge = 1,
             .max_recv_sge = 1,
         },
