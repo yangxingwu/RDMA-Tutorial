@@ -1,2 +1,4 @@
 *.o
 rdma-tutorial
+client.log
+server.log
