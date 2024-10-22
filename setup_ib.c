@@ -127,6 +127,12 @@ int setup_ib() {
 
     memset(&ib_res, 0, sizeof(struct IBRes));
 
+    // refer to https://www.rdmamojo.com/2012/05/24/ibv_fork_init/
+    // ibv_fork_init() should be called before calling any other
+    // function in libibverbs.
+    ret = ibv_fork_init();
+    check(ret == 0, "Failed to ibv_fork_init.");
+
     /* get IB device list */
     dev_list = ibv_get_device_list(&num_devices);
     check(dev_list != NULL, "Failed to get ib device list.");
