@@ -123,12 +123,14 @@ error:
 int setup_ib() {
     int ret = 0;
     struct ibv_device **dev_list = NULL;
+    int num_devices;
 
     memset(&ib_res, 0, sizeof(struct IBRes));
 
     /* get IB device list */
-    dev_list = ibv_get_device_list(NULL);
+    dev_list = ibv_get_device_list(&num_devices);
     check(dev_list != NULL, "Failed to get ib device list.");
+    check(num_devices != 0, "No ib devices are found.");
 
     /* create IB context */
     ib_res.ctx = ibv_open_device(*dev_list);
