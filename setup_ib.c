@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <infiniband/verbs.h>
 #include <unistd.h>
 #include <malloc.h>
 
@@ -149,6 +150,17 @@ int setup_ib() {
     /* query IB port attribute */
     ret = ibv_query_port(ib_res.ctx, IB_PORT, &ib_res.port_attr);
     check(ret == 0, "Failed to query IB port information.");
+
+    ib_res.gid_info.link_layer = ib_res.port_attr.link_layer;
+    if (ib_res.gid_info.link_layer == IBV_LINK_LAYER_INFINIBAND) {
+        // do nothing
+    } else if (ib_res.gid_info.link_layer == IBV_LINK_LAYER_ETHERNET) {
+        ret = ibv_query_gid(ib_res.ctx, IB_PORT, IB_GID_INDEX,
+                            &ib_res.gid_info.local_gid);
+        check(ret == 0, "Failed to query GID information.");
+    } else { // IBV_LINK_LAYER_UNSPECIFIED
+        // do nothing
+    }
 
     /* register mr (memory region) */
     ib_res.ib_buf_size = config_info.msg_size * config_info.num_concurr_msgs;

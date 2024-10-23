@@ -3,6 +3,11 @@
 
 #include <infiniband/verbs.h>
 
+struct IBGidInfo {
+    uint8_t link_layer;
+    union ibv_gid local_gid;
+};
+
 struct IBRes {
     struct ibv_context      *ctx;
     struct ibv_pd           *pd;
@@ -11,6 +16,7 @@ struct IBRes {
     struct ibv_qp           *qp;
     struct ibv_port_attr    port_attr;
     struct ibv_device_attr  dev_attr;
+    struct IBGidInfo        gid_info;
 
     char    *ib_buf;
     size_t  ib_buf_size;

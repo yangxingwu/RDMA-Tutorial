@@ -37,10 +37,12 @@ static int __modify_qp_to_rtr(struct ibv_qp *qp, uint8_t link_layer,
 
     if (link_layer == IBV_LINK_LAYER_ETHERNET) {
         qp_attr.ah_attr.is_global = 1;
-        // qp_attr.ah_attr.grh.dgid.global.subnet_prefix = info->spn;
-        // qp_attr.ah_attr.grh.dgid.global.interface_id = info->iid;
+        qp_attr.ah_attr.grh.dgid.global.subnet_prefix =
+            ib_res.gid_info.local_gid.global.subnet_prefix;
+        qp_attr.ah_attr.grh.dgid.global.interface_id =
+            ib_res.gid_info.local_gid.global.interface_id;
         qp_attr.ah_attr.grh.flow_label = 0;
-        // qp_attr.ah_attr.grh.sgid_index = ncclParamIbGidIndex();
+        qp_attr.ah_attr.grh.sgid_index = IB_GID_INDEX;
         qp_attr.ah_attr.grh.hop_limit = 255;
         // qp_attr.ah_attr.grh.traffic_class = ncclParamIbTc();
     } else {

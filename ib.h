@@ -10,6 +10,34 @@
 
 #define IB_MTU              IBV_MTU_4096
 #define IB_PORT             1
+/*
+ * IB GID INDEX
+ *
+ * refer to https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-gid-index
+ *
+ * the following is the output of command `show_gids`
+ *
+ * $ show_gids
+ * DEV	PORT	INDEX	GID					IPv4  		VER	DEV
+ * ---	----	-----	---					------------  	---	---
+ * mlx5_0	1	0	fe80:0000:0000:0000:0ac0:ebff:fe3d:ca54			v1	eth05
+ * mlx5_0	1	1	fe80:0000:0000:0000:0ac0:ebff:fe3d:ca54			v2	eth05
+ * mlx5_0	1	2	0000:0000:0000:0000:0000:ffff:0a6e:0021	10.110.0.33  	v1	eth05
+ * mlx5_0	1	3	0000:0000:0000:0000:0000:ffff:0a6e:0021	10.110.0.33  	v2	eth05
+ * mlx5_1	1	0	fe80:0000:0000:0000:0e42:a1ff:fea4:94a8			v1	eth02
+ * mlx5_1	1	1	fe80:0000:0000:0000:0e42:a1ff:fea4:94a8			v2	eth02
+ * mlx5_1	1	2	0000:0000:0000:0000:0000:ffff:1a6e:b11d	26.110.177.29  	v1	eth02
+ * mlx5_1	1	3	0000:0000:0000:0000:0000:ffff:1a6e:b11d	26.110.177.29  	v2	eth02
+ * mlx5_2	1	0	fe80:0000:0000:0000:0e42:a1ff:fea4:94a9			v1	eth03
+ * mlx5_2	1	1	fe80:0000:0000:0000:0e42:a1ff:fea4:94a9			v2	eth03
+ * mlx5_2	1	2	0000:0000:0000:0000:0000:ffff:1a6e:b21d	26.110.178.29  	v1	eth03
+ * mlx5_2	1	3	0000:0000:0000:0000:0000:ffff:1a6e:b21d	26.110.178.29  	v2	eth03
+ * n_gids_found=12
+ *
+ * `3` means a RoCE V2 device based on IPv4
+ *
+ */
+#define IB_GID_INDEX        3
 #define IB_SL               0
 #define IB_WR_ID_STOP       0xE000000000000000
 #define NUM_WARMING_UP_OPS  500000
