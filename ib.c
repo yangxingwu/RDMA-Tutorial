@@ -79,7 +79,7 @@ static int __modify_qp_to_rts(struct ibv_qp *qp) {
 int modify_qp_to_rts(struct ibv_qp *qp, uint32_t target_qp_num,
                      uint16_t target_lid) {
     /* change QP state to INIT */
-    check(__modify_qp_to_init(qp), "Failed to modify qp to INIT.");
+    check(__modify_qp_to_init(qp) == 0, "Failed to modify qp to INIT.");
 
     /* Change QP state to RTR */
     check(__modify_qp_to_rtr(qp, ib_res.port_attr.link_layer, target_qp_num,
