@@ -18,7 +18,7 @@ static int init_env() {
     check(log_fp != NULL, "Failed to open log file");
 
     log(LOG_HEADER, "IB Echo Server");
-    print_config_info ();
+    print_config_info();
 
     return 0;
 error:

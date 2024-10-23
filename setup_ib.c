@@ -237,7 +237,7 @@ int setup_ib(const char *ib_devname) {
 
     /* query IB device attr */
     ret = ibv_query_device(ib_res.ctx, &ib_res.dev_attr);
-    check(ret==0, "Failed to query device");
+    check(ret == 0, "Failed to query device");
 
     /* create cq (complete queue) */
     ib_res.cq = ibv_create_cq(ib_res.ctx, ib_res.dev_attr.max_cqe,
