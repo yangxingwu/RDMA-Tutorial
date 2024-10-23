@@ -32,6 +32,7 @@ int connect_qp_server() {
     /* init local qp_info */
     local_qp_info.lid  = ib_res.port_attr.lid;
     local_qp_info.qp_num = ib_res.qp->qp_num;
+    local_qp_info.gid = ib_res.gid_info.local_gid;
 
     /* get qp_info from client */
     ret = sock_get_qp_info(peer_sockfd, &remote_qp_info);
@@ -46,9 +47,29 @@ int connect_qp_server() {
                             remote_qp_info.lid);
     check(ret == 0, "Failed to modify qp to rts");
 
-    log(LOG_SUB_HEADER, "Start of IB Config");
+    log(LOG_SUB_HEADER, "IB Config");
     log("\tqp[%"PRIu32"] <-> qp[%"PRIu32"]",
         ib_res.qp->qp_num, remote_qp_info.qp_num);
+    log("local address: LID %#04x QPN %#06x", local_qp_info.lid, local_qp_info.qp_num);
+    log("GID: %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d",
+        local_qp_info.gid.raw[0], local_qp_info.gid.raw[1],
+        local_qp_info.gid.raw[2], local_qp_info.gid.raw[3],
+        local_qp_info.gid.raw[4], local_qp_info.gid.raw[5],
+        local_qp_info.gid.raw[6], local_qp_info.gid.raw[7],
+        local_qp_info.gid.raw[8], local_qp_info.gid.raw[9],
+        local_qp_info.gid.raw[10], local_qp_info.gid.raw[11],
+        local_qp_info.gid.raw[12], local_qp_info.gid.raw[13],
+        local_qp_info.gid.raw[14], local_qp_info.gid.raw[15]);
+    log("remote address: LID %#04x QPN %#06x", remote_qp_info.lid, remote_qp_info.qp_num);
+    log("GID: %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d",
+        remote_qp_info.gid.raw[0], remote_qp_info.gid.raw[1],
+        remote_qp_info.gid.raw[2], remote_qp_info.gid.raw[3],
+        remote_qp_info.gid.raw[4], remote_qp_info.gid.raw[5],
+        remote_qp_info.gid.raw[6], remote_qp_info.gid.raw[7],
+        remote_qp_info.gid.raw[8], remote_qp_info.gid.raw[9],
+        remote_qp_info.gid.raw[10], remote_qp_info.gid.raw[11],
+        remote_qp_info.gid.raw[12], remote_qp_info.gid.raw[13],
+        remote_qp_info.gid.raw[14], remote_qp_info.gid.raw[15]);
     log(LOG_SUB_HEADER, "End of IB Config");
 
     /* sync with clients */
@@ -85,6 +106,7 @@ int connect_qp_client() {
 
     local_qp_info.lid = ib_res.port_attr.lid;
     local_qp_info.qp_num = ib_res.qp->qp_num;
+    local_qp_info.gid = ib_res.gid_info.local_gid;
 
     /* send qp_info to server */
     ret = sock_set_qp_info (peer_sockfd, &local_qp_info);
@@ -102,6 +124,26 @@ int connect_qp_client() {
     log(LOG_SUB_HEADER, "IB Config");
     log("\tqp[%"PRIu32"] <-> qp[%"PRIu32"]",
         ib_res.qp->qp_num, remote_qp_info.qp_num);
+    log("local address: LID %#04x QPN %#06x", local_qp_info.lid, local_qp_info.qp_num);
+    log("GID: %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d",
+        local_qp_info.gid.raw[0], local_qp_info.gid.raw[1],
+        local_qp_info.gid.raw[2], local_qp_info.gid.raw[3],
+        local_qp_info.gid.raw[4], local_qp_info.gid.raw[5],
+        local_qp_info.gid.raw[6], local_qp_info.gid.raw[7],
+        local_qp_info.gid.raw[8], local_qp_info.gid.raw[9],
+        local_qp_info.gid.raw[10], local_qp_info.gid.raw[11],
+        local_qp_info.gid.raw[12], local_qp_info.gid.raw[13],
+        local_qp_info.gid.raw[14], local_qp_info.gid.raw[15]);
+    log("remote address: LID %#04x QPN %#06x", remote_qp_info.lid, remote_qp_info.qp_num);
+    log("GID: %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d",
+        remote_qp_info.gid.raw[0], remote_qp_info.gid.raw[1],
+        remote_qp_info.gid.raw[2], remote_qp_info.gid.raw[3],
+        remote_qp_info.gid.raw[4], remote_qp_info.gid.raw[5],
+        remote_qp_info.gid.raw[6], remote_qp_info.gid.raw[7],
+        remote_qp_info.gid.raw[8], remote_qp_info.gid.raw[9],
+        remote_qp_info.gid.raw[10], remote_qp_info.gid.raw[11],
+        remote_qp_info.gid.raw[12], remote_qp_info.gid.raw[13],
+        remote_qp_info.gid.raw[14], remote_qp_info.gid.raw[15]);
     log(LOG_SUB_HEADER, "End of IB Config");
 
     /* sync with server */
