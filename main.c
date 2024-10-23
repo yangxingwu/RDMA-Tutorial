@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
     ret = init_env();
     check(ret == 0, "Failed to init env");
 
-    ret = setup_ib();
+    ret = setup_ib(NULL);
     check(ret == 0, "Failed to setup IB");
 
     if (config_info.is_server) {

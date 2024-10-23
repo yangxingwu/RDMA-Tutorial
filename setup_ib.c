@@ -121,10 +121,36 @@ error:
     return -1;
 }
 
-int setup_ib() {
+static struct ibv_context *__ctx_open_device(const char *ib_devname) {
+    int num_of_devices;
+    struct ibv_device **list;
+    struct ibv_device *dev = NULL;
+    struct ibv_context *ctx = NULL;
+
+    list = ibv_get_device_list(&num_of_devices);
+    check(list != NULL, "Failed to get ib device list.");
+    check(num_of_devices > 0, "No IB devices found.");
+
+    if (ib_devname == NULL || ib_devname[0] == '\0') {
+        // return the first available device
+        dev = list[0];
+    } else {
+        for (; (dev = *list); ++list)
+            if (!strcmp(ibv_get_device_name(dev), ib_devname))
+                break;
+        check(dev != NULL, "IB device %s not found\n", ib_devname);
+    }
+
+    ctx = ibv_open_device(dev);
+
+error:
+    if (list != NULL)
+        ibv_free_device_list(list);
+    return ctx;
+}
+
+int setup_ib(const char *ib_devname) {
     int ret = 0;
-    struct ibv_device **dev_list = NULL;
-    int num_devices;
 
     memset(&ib_res, 0, sizeof(struct IBRes));
 
@@ -134,13 +160,8 @@ int setup_ib() {
     ret = ibv_fork_init();
     check(ret == 0, "Failed to ibv_fork_init.");
 
-    /* get IB device list */
-    dev_list = ibv_get_device_list(&num_devices);
-    check(dev_list != NULL, "Failed to get ib device list.");
-    check(num_devices != 0, "No ib devices are found.");
-
     /* create IB context */
-    ib_res.ctx = ibv_open_device(*dev_list);
+    ib_res.ctx = __ctx_open_device(ib_devname);
     check(ib_res.ctx != NULL, "Failed to open ib device.");
 
     /* allocate protection domain */
@@ -217,12 +238,9 @@ int setup_ib() {
     }
     check(ret == 0, "Failed to connect qp");
 
-    ibv_free_device_list(dev_list);
     return 0;
 
 error:
-    if (dev_list != NULL)
-        ibv_free_device_list(dev_list);
     return -1;
 }
 
