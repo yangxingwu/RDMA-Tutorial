@@ -29,7 +29,7 @@ static int __modify_qp_to_rtr(struct ibv_qp *qp, uint8_t link_layer,
     memset(&qp_attr, 0, sizeof(struct ibv_qp_attr));
 
     qp_attr.qp_state = IBV_QPS_RTR;
-    qp_attr.path_mtu = IB_MTU;
+    qp_attr.path_mtu = ib_res.port_attr.active_mtu;
     qp_attr.dest_qp_num = target_qp_num;
     qp_attr.rq_psn = 0;
     qp_attr.max_dest_rd_atomic = 1;

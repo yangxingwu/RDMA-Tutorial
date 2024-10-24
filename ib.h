@@ -8,7 +8,6 @@
 #include <infiniband/verbs.h>
 #include <arpa/inet.h>
 
-#define IB_MTU              IBV_MTU_4096
 /*
  * IB PORT and GID INDEX
  *
