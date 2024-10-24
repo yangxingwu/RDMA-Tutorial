@@ -1,0 +1,296 @@
+#!/usr/bin/bpftrace
+
+enum ibv_qp_state {
+  IBV_QPS_RESET,
+  IBV_QPS_INIT,
+  IBV_QPS_RTR,
+  IBV_QPS_RTS,
+  IBV_QPS_SQD,
+  IBV_QPS_SQE,
+  IBV_QPS_ERR,
+  IBV_QPS_UNKNOWN
+};
+
+enum ibv_mtu {
+  IBV_MTU_256  = 1,
+  IBV_MTU_512  = 2,
+  IBV_MTU_1024 = 3,
+  IBV_MTU_2048 = 4,
+  IBV_MTU_4096 = 5
+};
+
+enum ibv_mig_state {
+  IBV_MIG_MIGRATED,
+  IBV_MIG_REARM,
+  IBV_MIG_ARMED
+};
+
+struct ibv_qp_cap {
+  uint32_t  max_send_wr;
+  uint32_t  max_recv_wr;
+  uint32_t  max_send_sge;
+  uint32_t  max_recv_sge;
+  uint32_t  max_inline_data;
+};
+
+union ibv_gid {
+  uint8_t   raw[16];
+  struct {
+    __be64  subnet_prefix;
+    __be64  interface_id;
+  } global;
+};
+
+struct ibv_global_route {
+  union ibv_gid dgid;
+  uint32_t      flow_label;
+  uint8_t       sgid_index;
+  uint8_t       hop_limit;
+  uint8_t       traffic_class;
+};
+
+struct ibv_ah_attr {
+  struct ibv_global_route grh;
+  uint16_t    dlid;
+  uint8_t     sl;
+  uint8_t     src_path_bits;
+  uint8_t     static_rate;
+  uint8_t     is_global;
+  uint8_t     port_num;
+};
+
+struct ibv_qp_attr {
+  enum ibv_qp_state   qp_state;
+  enum ibv_qp_state   cur_qp_state;
+  enum ibv_mtu        path_mtu;
+  enum ibv_mig_state  path_mig_state;
+  uint32_t            qkey;
+  uint32_t            rq_psn;
+  uint32_t            sq_psn;
+  uint32_t            dest_qp_num;
+  unsigned int        qp_access_flags;
+  struct ibv_qp_cap   cap;
+  struct ibv_ah_attr  ah_attr;
+  struct ibv_ah_attr  alt_ah_attr;
+  uint16_t            pkey_index;
+  uint16_t            alt_pkey_index;
+  uint8_t             en_sqd_async_notify;
+  uint8_t             sq_draining;
+  uint8_t             max_rd_atomic;
+  uint8_t             max_dest_rd_atomic;
+  uint8_t             min_rnr_timer;
+  uint8_t             port_num;
+  uint8_t             timeout;
+  uint8_t             retry_cnt;
+  uint8_t             rnr_retry;
+  uint8_t             alt_port_num;
+  uint8_t             alt_timeout;
+  uint32_t            rate_limit;
+};
+
+enum ibv_qp_attr_mask {
+  IBV_QP_STATE                = 1 <<  0,
+  IBV_QP_CUR_STATE            = 1 <<  1,
+  IBV_QP_EN_SQD_ASYNC_NOTIFY  = 1 <<  2,
+  IBV_QP_ACCESS_FLAGS         = 1 <<  3,
+  IBV_QP_PKEY_INDEX           = 1 <<  4,
+  IBV_QP_PORT                 = 1 <<  5,
+  IBV_QP_QKEY                 = 1 <<  6,
+  IBV_QP_AV                   = 1 <<  7,
+  IBV_QP_PATH_MTU             = 1 <<  8,
+  IBV_QP_TIMEOUT              = 1 <<  9,
+  IBV_QP_RETRY_CNT            = 1 << 10,
+  IBV_QP_RNR_RETRY            = 1 << 11,
+  IBV_QP_RQ_PSN               = 1 << 12,
+  IBV_QP_MAX_QP_RD_ATOMIC     = 1 << 13,
+  IBV_QP_ALT_PATH             = 1 << 14,
+  IBV_QP_MIN_RNR_TIMER        = 1 << 15,
+  IBV_QP_SQ_PSN               = 1 << 16,
+  IBV_QP_MAX_DEST_RD_ATOMIC   = 1 << 17,
+  IBV_QP_PATH_MIG_STATE       = 1 << 18,
+  IBV_QP_CAP                  = 1 << 19,
+  IBV_QP_DEST_QPN             = 1 << 20,
+  /* These bits were supported on older kernels, but never exposed from
+     libibverbs:
+     _IBV_QP_SMAC             = 1 << 21,
+     _IBV_QP_ALT_SMAC         = 1 << 22,
+     _IBV_QP_VID              = 1 << 23,
+     _IBV_QP_ALT_VID          = 1 << 24,
+   */
+  IBV_QP_RATE_LIMIT           = 1 << 25,
+};
+
+uprobe:/usr/lib64/libibverbs.so:ibv_modify_qp
+{
+    $qp_attr = (struct ibv_qp_attr *)arg1;
+
+    printf("==========    qp attr     ==========\n");
+
+    printf("  qp_state: %d\n", $qp_attr->qp_state);
+    printf("  cur_qp_stateq: %d\n", $qp_attr->cur_qp_state);
+    printf("  path_mtu: %d\n", $qp_attr->path_mtu);
+    printf("  path_mig_state: %d\n", $qp_attr->path_mig_state);
+
+    if ($qp_attr->qkey != 0) {
+        printf("  qkey: %d\n", $qp_attr->qkey);
+    }
+    if ($qp_attr->rq_psn != 0) {
+        printf("  rq_psn: %d\n", $qp_attr->rq_psn);
+    }
+    if ($qp_attr->sq_psn != 0) {
+        printf("  sq_psn: %d\n", $qp_attr->sq_psn);
+    }
+    if ($qp_attr->dest_qp_num != 0) {
+        printf("  dest_qp_num: %d\n", $qp_attr->dest_qp_num);
+    }
+    if ($qp_attr->qp_access_flags != 0) {
+        printf("  qp_access_flags: %d\n", $qp_attr->qp_access_flags);
+    }
+
+    printf("  cap.max_send_wr: %d\n", $qp_attr->cap.max_send_wr);
+    printf("  cap.max_recv_wr: %d\n", $qp_attr->cap.max_recv_wr);
+    printf("  cap.max_send_sge: %d\n", $qp_attr->cap.max_send_sge);
+    printf("  cap.max_recv_sge: %d\n", $qp_attr->cap.max_recv_sge);
+    printf("  cap.max_inline_data: %d\n", $qp_attr->cap.max_inline_data);
+
+    printf("  ah_attr.grh.dgid.global.subnet_prefix: %d\n", $qp_attr->ah_attr.grh.dgid.global.subnet_prefix);
+    printf("  ah_attr.grh.dgid.global.interface_id: %d\n", $qp_attr->ah_attr.grh.dgid.global.interface_id);
+    printf("  ah_attr.grh.flow_label: %d\n", $qp_attr->ah_attr.grh.flow_label);
+    printf("  ah_attr.grh.sgid_index: %d\n", $qp_attr->ah_attr.grh.sgid_index);
+    printf("  ah_attr.grh.hop_limit: %d\n", $qp_attr->ah_attr.grh.hop_limit);
+    printf("  ah_attr.grh.traffic_class: %d\n", $qp_attr->ah_attr.grh.traffic_class);
+    printf("  ah_attr.dlid: %d\n", $qp_attr->ah_attr.dlid);
+    printf("  ah_attr.sl: %d\n", $qp_attr->ah_attr.sl);
+    printf("  ah_attr.src_path_bits: %d\n", $qp_attr->ah_attr.src_path_bits);
+    printf("  ah_attr.static_rate: %d\n", $qp_attr->ah_attr.static_rate);
+    printf("  ah_attr.is_global: %d\n", $qp_attr->ah_attr.is_global);
+    printf("  ah_attr.port_num: %d\n", $qp_attr->ah_attr.port_num);
+
+    printf("  alt_ah_attr.grh.dgid.global.subnet_prefix: %d\n", $qp_attr->alt_ah_attr.grh.dgid.global.subnet_prefix);
+    printf("  alt_ah_attr.grh.dgid.global.interface_id: %d\n", $qp_attr->alt_ah_attr.grh.dgid.global.interface_id);
+    printf("  alt_ah_attr.grh.flow_label: %d\n", $qp_attr->alt_ah_attr.grh.flow_label);
+    printf("  alt_ah_attr.grh.sgid_index: %d\n", $qp_attr->alt_ah_attr.grh.sgid_index);
+    printf("  alt_ah_attr.grh.hop_limit: %d\n", $qp_attr->alt_ah_attr.grh.hop_limit);
+    printf("  alt_ah_attr.grh.traffic_class: %d\n", $qp_attr->alt_ah_attr.grh.traffic_class);
+    printf("  alt_ah_attr.dlid: %d\n", $qp_attr->alt_ah_attr.dlid);
+    printf("  alt_ah_attr.sl: %d\n", $qp_attr->alt_ah_attr.sl);
+    printf("  alt_ah_attr.src_path_bits: %d\n", $qp_attr->alt_ah_attr.src_path_bits);
+    printf("  alt_ah_attr.static_rate: %d\n", $qp_attr->alt_ah_attr.static_rate);
+    printf("  alt_ah_attr.is_global: %d\n", $qp_attr->alt_ah_attr.is_global);
+    printf("  alt_ah_attr.port_num: %d\n", $qp_attr->alt_ah_attr.port_num);
+
+    if ($qp_attr->pkey_index != 0) {
+        printf("  pkey_index: %d\n", $qp_attr->pkey_index);
+    }
+    if ($qp_attr->alt_pkey_index != 0) {
+        printf("  alt_pkey_index: %d\n", $qp_attr->alt_pkey_index);
+    }
+    if ($qp_attr->en_sqd_async_notify != 0) {
+        printf("  en_sqd_async_notify: %d\n", $qp_attr->en_sqd_async_notify);
+    }
+    if ($qp_attr->sq_draining != 0) {
+        printf("  sq_draining: %d\n", $qp_attr->sq_draining);
+    }
+    if ($qp_attr->max_rd_atomic != 0) {
+        printf("  max_rd_atomic: %d\n", $qp_attr->max_rd_atomic);
+    }
+    if ($qp_attr->max_dest_rd_atomic != 0) {
+        printf("  max_dest_rd_atomic: %d\n", $qp_attr->max_dest_rd_atomic);
+    }
+    if ($qp_attr->min_rnr_timer != 0) {
+        printf("  min_rnr_timer: %d\n", $qp_attr->min_rnr_timer);
+    }
+    if ($qp_attr->port_num != 0) {
+        printf("  port_num: %d\n", $qp_attr->port_num);
+    }
+    if ($qp_attr->timeout != 0) {
+        printf("  timeout: %d\n", $qp_attr->timeout);
+    }
+    if ($qp_attr->retry_cnt != 0) {
+        printf("  retry_cnt: %d\n", $qp_attr->retry_cnt);
+    }
+    if ($qp_attr->alt_port_num != 0) {
+        printf("  alt_port_num: %d\n", $qp_attr->alt_port_num);
+    }
+    if ($qp_attr->alt_timeout != 0) {
+        printf("  alt_timeout: %d\n", $qp_attr->alt_timeout);
+    }
+    if ($qp_attr->rate_limit!= 0) {
+        printf("  rate_limit: %d\n", $qp_attr->rate_limit);
+    }
+
+    printf("========== END of qp attr ==========\n");
+
+    printf("==========    attr mask     ==========\n");
+
+    $attr_mask = arg2;
+
+    if ($attr_mask & IBV_QP_STATE != 0) {
+        printf("  IBV_QP_STATE\n");
+    }
+    if ($attr_mask & IBV_QP_CUR_STATE != 0) {
+        printf("  IBV_QP_CUR_STATE\n");
+    }
+    if ($attr_mask & IBV_QP_EN_SQD_ASYNC_NOTIFY != 0) {
+        printf("  IBV_QP_EN_SQD_ASYNC_NOTIFY\n");
+    }
+    if ($attr_mask & IBV_QP_ACCESS_FLAGS != 0) {
+        printf("  IBV_QP_ACCESS_FLAGS\n");
+    }
+    if ($attr_mask & IBV_QP_PKEY_INDEX != 0) {
+        printf("  IBV_QP_PKEY_INDEX\n");
+    }
+    if ($attr_mask & IBV_QP_PORT != 0) {
+        printf("  IBV_QP_PORT\n");
+    }
+    if ($attr_mask & IBV_QP_QKEY != 0) {
+        printf("  IBV_QP_QKEY\n");
+    }
+    if ($attr_mask & IBV_QP_AV != 0) {
+        printf("  IBV_QP_AV\n");
+    }
+    if ($attr_mask & IBV_QP_PATH_MTU != 0) {
+        printf("  IBV_QP_PATH_MTU\n");
+    }
+    if ($attr_mask & IBV_QP_TIMEOUT != 0) {
+        printf("  IBV_QP_TIMEOUT\n");
+    }
+    if ($attr_mask & IBV_QP_RETRY_CNT != 0) {
+        printf("  IBV_QP_RETRY_CNT\n");
+    }
+    if ($attr_mask & IBV_QP_RNR_RETRY != 0) {
+        printf("  IBV_QP_RNR_RETRY\n");
+    }
+    if ($attr_mask & IBV_QP_RQ_PSN != 0) {
+        printf("  IBV_QP_RQ_PSN\n");
+    }
+    if ($attr_mask & IBV_QP_MAX_QP_RD_ATOMIC != 0) {
+        printf("  IBV_QP_MAX_QP_RD_ATOMIC\n");
+    }
+    if ($attr_mask & IBV_QP_ALT_PATH != 0) {
+        printf("  IBV_QP_ALT_PATH\n");
+    }
+    if ($attr_mask & IBV_QP_MIN_RNR_TIMER != 0) {
+        printf("  IBV_QP_MIN_RNR_TIMER\n");
+    }
+    if ($attr_mask & IBV_QP_SQ_PSN != 0) {
+        printf("  IBV_QP_SQ_PSN\n");
+    }
+    if ($attr_mask & IBV_QP_MAX_DEST_RD_ATOMIC != 0) {
+        printf("  IBV_QP_MAX_DEST_RD_ATOMIC\n");
+    }
+    if ($attr_mask & IBV_QP_PATH_MIG_STATE != 0) {
+        printf("  IBV_QP_PATH_MIG_STATE\n");
+    }
+    if ($attr_mask & IBV_QP_CAP != 0) {
+        printf("  IBV_QP_CAP\n");
+    }
+    if ($attr_mask & IBV_QP_DEST_QPN != 0) {
+        printf("  IBV_QP_DEST_QPN \n");
+    }
+    if ($attr_mask & IBV_QP_RATE_LIMIT != 0) {
+        printf("  IBV_QP_RATE_LIMIT\n");
+    }
+
+    printf("========== END of attr mask ==========\n");
+}

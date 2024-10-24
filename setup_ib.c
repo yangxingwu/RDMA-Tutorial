@@ -43,8 +43,7 @@ int connect_qp_server() {
     check(ret == 0, "Failed to send qp_info to client");
 
     /* change send QP state to RTS (Ready To Send) */
-    ret = modify_qp_to_rts(ib_res.qp, remote_qp_info.qp_num,
-                            remote_qp_info.lid);
+    ret = modify_qp_to_rts(ib_res.qp, &remote_qp_info);
     check(ret == 0, "Failed to modify qp to rts");
 
     log(LOG_SUB_HEADER, "IB Config");
@@ -117,8 +116,7 @@ int connect_qp_client() {
     check(ret == 0, "Failed to get qp_info from server");
 
     /* change QP state to RTS */
-    ret = modify_qp_to_rts(ib_res.qp, remote_qp_info.qp_num,
-                           remote_qp_info.lid);
+    ret = modify_qp_to_rts(ib_res.qp, &remote_qp_info);
     check(ret == 0, "Failed to modify qp to rts");
 
     log(LOG_SUB_HEADER, "IB Config");

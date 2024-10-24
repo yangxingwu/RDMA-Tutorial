@@ -23,31 +23,28 @@ static int __modify_qp_to_init(struct ibv_qp *qp) {
 }
 
 static int __modify_qp_to_rtr(struct ibv_qp *qp, uint8_t link_layer,
-                              uint32_t target_qp_num, uint16_t target_lid) {
+                              struct QPInfo *remote_qp_info) {
     struct ibv_qp_attr qp_attr;
 
     memset(&qp_attr, 0, sizeof(struct ibv_qp_attr));
 
     qp_attr.qp_state = IBV_QPS_RTR;
     qp_attr.path_mtu = ib_res.port_attr.active_mtu;
-    qp_attr.dest_qp_num = target_qp_num;
+    qp_attr.dest_qp_num = remote_qp_info->qp_num;
     qp_attr.rq_psn = 0;
     qp_attr.max_dest_rd_atomic = 1;
     qp_attr.min_rnr_timer = 12;
 
     if (link_layer == IBV_LINK_LAYER_ETHERNET) {
         qp_attr.ah_attr.is_global = 1;
-        qp_attr.ah_attr.grh.dgid.global.subnet_prefix =
-            ib_res.gid_info.local_gid.global.subnet_prefix;
-        qp_attr.ah_attr.grh.dgid.global.interface_id =
-            ib_res.gid_info.local_gid.global.interface_id;
+        memcpy(qp_attr.ah_attr.grh.dgid.raw, remote_qp_info->gid.raw, sizeof(union ibv_gid));
         qp_attr.ah_attr.grh.flow_label = 0;
         qp_attr.ah_attr.grh.sgid_index = IB_GID_INDEX;
         qp_attr.ah_attr.grh.hop_limit = 255;
         qp_attr.ah_attr.grh.traffic_class = 0;
     } else {
         qp_attr.ah_attr.is_global = 0;
-        qp_attr.ah_attr.dlid = target_lid;
+        qp_attr.ah_attr.dlid = remote_qp_info->lid;
     }
 
     qp_attr.ah_attr.sl = IB_SL;
@@ -76,14 +73,13 @@ static int __modify_qp_to_rts(struct ibv_qp *qp) {
                          IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC);
 }
 
-int modify_qp_to_rts(struct ibv_qp *qp, uint32_t target_qp_num,
-                     uint16_t target_lid) {
+int modify_qp_to_rts(struct ibv_qp *qp, struct QPInfo *remote_qp_info) {
     /* change QP state to INIT */
     check(__modify_qp_to_init(qp) == 0, "Failed to modify qp to INIT.");
 
     /* Change QP state to RTR */
-    check(__modify_qp_to_rtr(qp, ib_res.port_attr.link_layer, target_qp_num,
-                             target_lid) == 0, "Failed to change qp to rtr.");
+    check(__modify_qp_to_rtr(qp, ib_res.port_attr.link_layer, remote_qp_info)
+          == 0, "Failed to change qp to rtr.");
 
     /* Change QP state to RTS */
     check(__modify_qp_to_rts(qp) == 0, "Failed to modify qp to RTS.");
