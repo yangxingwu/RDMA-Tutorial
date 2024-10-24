@@ -2,3 +2,5 @@
 rdma-tutorial
 client.log
 server.log
+*.diff
+*.patch
