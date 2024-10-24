@@ -44,7 +44,7 @@ static int __modify_qp_to_rtr(struct ibv_qp *qp, uint8_t link_layer,
         qp_attr.ah_attr.grh.flow_label = 0;
         qp_attr.ah_attr.grh.sgid_index = IB_GID_INDEX;
         qp_attr.ah_attr.grh.hop_limit = 255;
-        // qp_attr.ah_attr.grh.traffic_class = ncclParamIbTc();
+        qp_attr.ah_attr.grh.traffic_class = 0;
     } else {
         qp_attr.ah_attr.is_global = 0;
         qp_attr.ah_attr.dlid = target_lid;

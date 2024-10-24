@@ -9,9 +9,8 @@
 #include <arpa/inet.h>
 
 #define IB_MTU              IBV_MTU_4096
-#define IB_PORT             1
 /*
- * IB GID INDEX
+ * IB PORT and GID INDEX
  *
  * refer to https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-gid-index
  *
@@ -34,9 +33,11 @@
  * mlx5_2	1	3	0000:0000:0000:0000:0000:ffff:1a6e:b21d	26.110.178.29  	v2	eth03
  * n_gids_found=12
  *
- * `3` means a RoCE V2 device based on IPv4
+ * PORT `1` -- check PORT column
+ * INDEX `3` means a RoCE V2 device based on IPv4 -- check INDEX column
  *
  */
+#define IB_PORT             1
 #define IB_GID_INDEX        3
 #define IB_SL               0
 #define IB_WR_ID_STOP       0xE000000000000000

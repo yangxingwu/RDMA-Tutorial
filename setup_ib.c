@@ -265,6 +265,7 @@ int setup_ib(const char *ib_devname) {
             .max_recv_wr = 2, // [0..ib_res.dev_attr.max_qp_wr]
             .max_send_sge = 1,
             .max_recv_sge = 1,
+            .max_inline_data = 0,
         },
         .qp_type = IBV_QPT_RC,
     };
