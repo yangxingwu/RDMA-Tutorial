@@ -61,11 +61,13 @@ void *server_thread(void *arg) {
         for (i = 0; i < n; i++) {
             if (wc[i].status != IBV_WC_SUCCESS) {
                 if (wc[i].opcode == IBV_WC_SEND) {
-                    check(0, "thread[%ld]: send failed status: %s",
-                           thread_id, ibv_wc_status_str(wc[i].status));
+                    check(0, "thread[%ld]: send failed status: %d, %s",
+                          thread_id, wc[i].status,
+                          ibv_wc_status_str(wc[i].status));
                 } else {
-                    check(0, "thread[%ld]: recv failed status: %s",
-                           thread_id, ibv_wc_status_str(wc[i].status));
+                    check(0, "thread[%ld]: recv failed status: %d, %s",
+                          thread_id, wc[i].status,
+                          ibv_wc_status_str(wc[i].status));
                 }
             }
 
@@ -84,10 +86,14 @@ void *server_thread(void *arg) {
 
                 /* echo the message back */
                 char *msg_ptr = (char *)wc[i].wr_id;
-                post_send(msg_size, lkey, 0, MSG_REGULAR, qp, msg_ptr);
+                ret = post_send(msg_size, lkey, 0, MSG_REGULAR, qp, msg_ptr);
+                check (ret == 0, "thread[%ld](file %s line %d): failed to post send",
+                       thread_id, __FILE__, __LINE__);
 
                 /* post a new receive */
-                post_recv(msg_size, lkey, wc[i].wr_id, qp, msg_ptr);
+                ret = post_recv(msg_size, lkey, wc[i].wr_id, qp, msg_ptr);
+                check (ret == 0, "thread[%ld](file %s line %d): failed to post recv",
+                       thread_id, __FILE__, __LINE__);
             }
         }
     }
@@ -106,11 +112,13 @@ void *server_thread(void *arg) {
         for (i = 0; i < n; i++) {
             if (wc[i].status != IBV_WC_SUCCESS) {
                 if (wc[i].opcode == IBV_WC_SEND) {
-                    check(0, "thread[%ld]: send failed status: %s",
-                          thread_id, ibv_wc_status_str(wc[i].status));
+                    check(0, "thread[%ld]: send failed status: %d, %s",
+                          thread_id, wc[i].status,
+                          ibv_wc_status_str(wc[i].status));
                 } else {
-                    check(0, "thread[%ld]: recv failed status: %s",
-                          thread_id, ibv_wc_status_str(wc[i].status));
+                    check(0, "thread[%ld]: recv failed status: %d, %s",
+                          thread_id, wc[i].status,
+                          ibv_wc_status_str(wc[i].status));
                 }
             }
 
