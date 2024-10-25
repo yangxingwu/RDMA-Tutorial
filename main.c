@@ -29,7 +29,7 @@ static void destroy_env() {
     log(LOG_HEADER, "Run Finished");
 
     if (log_fp != NULL)
-        fclose (log_fp);
+        fclose(log_fp);
 }
 
 int main(int argc, char *argv[]) {

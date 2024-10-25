@@ -30,6 +30,24 @@ int connect_qp_server() {
     check(peer_sockfd > 0, "Failed to create peer_sockfd");
 
     /* init local qp_info */
+    /*
+     * LID - The lid field in the struct ibv_port_attr represents the base Local
+     * Identifier (LID) of the port. This value is valid only if the port's
+     * state is either IBV_PORT_ARMED or IBV_PORT_ACTIVE. The LID is a unique
+     * identifier used in InfiniBand networks to route packets to the correct
+     * destination port.
+     *
+     * In InfiniBand networks, both Local Identifier (LID) and Global Identifier
+     * (GID) are used for addressing, but they serve different purposes and
+     * have different characteristics:
+     *
+     * LID is a shorter, locally unique identifier used within a single
+     * InfiniBand subnet for efficient routing.
+     *
+     * GID is a longer, globally unique identifier used for routing across
+     * multiple subnets, ensuring global uniqueness.
+     *
+     */
     local_qp_info.lid  = ib_res.port_attr.lid;
     local_qp_info.qp_num = ib_res.qp->qp_num;
     local_qp_info.gid = ib_res.gid_info.local_gid;
@@ -108,7 +126,7 @@ int connect_qp_client() {
     local_qp_info.gid = ib_res.gid_info.local_gid;
 
     /* send qp_info to server */
-    ret = sock_set_qp_info (peer_sockfd, &local_qp_info);
+    ret = sock_set_qp_info(peer_sockfd, &local_qp_info);
     check(ret == 0, "Failed to send qp_info to server");
 
     /* get qp_info from server */
@@ -228,6 +246,17 @@ int setup_ib(const char *ib_devname) {
     ib_res.ib_buf      = (char *)memalign(4096, ib_res.ib_buf_size);
     check(ib_res.ib_buf != NULL, "Failed to allocate ib_buf");
 
+    /*
+     * struct ibv_mr *, Pointer to the newly allocated Memory Region.
+     *
+     * This pointer also contains the following fields:
+     *
+     * lkey - The value that will be used to refer to this MR using a local access
+     * rkey - The value that will be used to refer to this MR using a remote access
+     *
+     * Those values may be equal, but this isn't always guaranteed.
+     *
+     */
     ib_res.mr = ibv_reg_mr(ib_res.pd, (void *)ib_res.ib_buf, ib_res.ib_buf_size,
                            IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
                            IBV_ACCESS_REMOTE_WRITE);
@@ -290,17 +319,17 @@ void close_ib_connection() {
         ibv_destroy_qp(ib_res.qp);
 
     if (ib_res.cq != NULL)
-        ibv_destroy_cq (ib_res.cq);
+        ibv_destroy_cq(ib_res.cq);
 
     if (ib_res.mr != NULL)
-        ibv_dereg_mr (ib_res.mr);
+        ibv_dereg_mr(ib_res.mr);
 
     if (ib_res.pd != NULL)
-        ibv_dealloc_pd (ib_res.pd);
+        ibv_dealloc_pd(ib_res.pd);
 
     if (ib_res.ctx != NULL)
-        ibv_close_device (ib_res.ctx);
+        ibv_close_device(ib_res.ctx);
 
     if (ib_res.ib_buf != NULL)
-        free (ib_res.ib_buf);
+        free(ib_res.ib_buf);
 }

@@ -16,7 +16,7 @@
  * the following is the output of command `show_gids`
  *
  * $ show_gids
- * DEV	PORT	INDEX	GID					IPv4  		VER	DEV
+ * DEV		PORT	INDEX	GID					IPv4  		VER	DEV
  * ---	----	-----	---					------------  	---	---
  * mlx5_0	1	0	fe80:0000:0000:0000:0ac0:ebff:fe3d:ca54			v1	eth05
  * mlx5_0	1	1	fe80:0000:0000:0000:0ac0:ebff:fe3d:ca54			v2	eth05
