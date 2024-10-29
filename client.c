@@ -46,7 +46,7 @@ static void *client_thread_func (void *arg) {
         ret = post_recv(msg_size, lkey, (uint64_t)buf_ptr, qp, buf_ptr);
         check(ret == 0, "thread[%ld]: failed to post recv", thread_id);
         buf_offset = (buf_offset + msg_size) % buf_size;
-        buf_ptr += buf_offset;
+        buf_ptr = ib_res.ib_buf + buf_offset;
     }
 
     /* wait for start signal */
@@ -66,7 +66,7 @@ static void *client_thread_func (void *arg) {
                 /* post a receive */
                 post_recv(msg_size, lkey, (uint64_t)buf_ptr, qp, buf_ptr);
                 buf_offset = (buf_offset + msg_size) % buf_size;
-                buf_ptr += buf_offset;
+                buf_ptr = ib_res.ib_buf + buf_offset;
 
                 if (ntohl(wc[i].imm_data) == MSG_CTL_START) {
                     start_sending = true;
@@ -83,7 +83,7 @@ static void *client_thread_func (void *arg) {
         ret = post_send(msg_size, lkey, 0, MSG_REGULAR, qp, buf_ptr);
         check(ret == 0, "thread[%ld]: failed to post send", thread_id);
         buf_offset = (buf_offset + msg_size) % buf_size;
-        buf_ptr += buf_offset;
+        buf_ptr = ib_res.ib_buf + buf_offset;
     }
 
 
@@ -127,11 +127,9 @@ static void *client_thread_func (void *arg) {
                        thread_id, __FILE__, __LINE__);
 
                 /* post a new receive */
-                ret = post_recv(msg_size, lkey, (uint64_t)buf_ptr, qp, buf_ptr);
+                ret = post_recv(msg_size, lkey, wc[i].wr_id, qp, buf_ptr);
                 check (ret == 0, "thread[%ld](file %s line %d): failed to post recv",
                        thread_id, __FILE__, __LINE__);
-                buf_offset = (buf_offset + msg_size) % buf_size;
-                buf_ptr += buf_offset;
             }
         } /* loop through all wc */
     }
