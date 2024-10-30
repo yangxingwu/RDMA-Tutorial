@@ -1,8 +1,10 @@
+#include <infiniband/verbs.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <net/if.h>
 #include "ib.h"
 
 void print_gid(union ibv_gid gid) {
@@ -12,6 +14,35 @@ void print_gid(union ibv_gid gid) {
             printf(":");
     }
     printf("\n");
+}
+
+static int __ibdev_2_netdev(const char *ib_dev_name,
+                             char *net_dev_name, const int net_dev_name_len) {
+    char command[256] = {'\0'};
+    FILE *fp = NULL;
+
+    snprintf(command, sizeof(command),
+             "ls /sys/class/infiniband/%s/device/net", ib_dev_name);
+
+    fp = popen(command, "r");
+    if (fp == NULL) {
+        fprintf(stderr, "Failed to list sysfs path %s: %s\n", command,
+                strerror(errno));
+        return -1;
+    }
+
+    if (fgets(net_dev_name, net_dev_name_len, fp) == NULL) {
+        fprintf(stderr, "Failed to get net device name from '%s' for %s: %s\n",
+                command, ib_dev_name, strerror(errno));
+        fclose(fp);
+        return -1;
+    }
+
+    // remove the trailing newline character
+    net_dev_name[strlen(net_dev_name) - 1] = '\0';
+
+    fclose(fp);
+    return 0;
 }
 
 struct ibv_context *ib_open_device(const char *dev_name) {
@@ -35,6 +66,7 @@ struct ibv_context *ib_open_device(const char *dev_name) {
     if (dev_name == NULL || dev_name[0] == '\0') {
         // select the first device
         ib_dev = dev_list[0];
+        dev_name = ibv_get_device_name(ib_dev);
     } else {
         // select by device name
         for (ib_dev = *dev_list; ib_dev != NULL; dev_list++) {
@@ -49,6 +81,13 @@ struct ibv_context *ib_open_device(const char *dev_name) {
 
     // open the device
     context = ibv_open_device(ib_dev);
+    if (context) {
+        char net_dev_name[IF_NAMESIZE] = {'\0'};
+        if (__ibdev_2_netdev(dev_name, net_dev_name, IF_NAMESIZE) == 0)
+            fprintf(stdout, "[%s at %d]: IB device %s <-> Ethernet device %s "
+                    "opened\n", __FILE__, __LINE__, dev_name, net_dev_name);
+    }
+
 
 err:
     ibv_free_device_list(dev_list);

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Werror -std=c99
+CFLAGS=-Wall -Werror -std=gnu99
 LIBS=-libverbs
 
 DEP_SRCS=ib.c
