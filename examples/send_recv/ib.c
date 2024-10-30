@@ -1,4 +1,8 @@
+#include <netinet/in.h>
 #include <stdio.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include "ib.h"
 
 void print_gid(union ibv_gid gid) {
@@ -142,4 +146,186 @@ int ib_modify_qp_to_rts(struct ibv_qp *qp) {
                          IBV_QP_RNR_RETRY           |
                          IBV_QP_SQ_PSN              |
                          IBV_QP_MAX_QP_RD_ATOMIC);
+}
+
+int ib_ctx_xchg_qp_info_as_server(uint16_t listen_port,
+                               struct qp_info local_qp_info,
+                               struct qp_info *remote_qp_info) {
+    int ret = 0;
+    int listen_fd, cli_fd;
+    struct sockaddr_in svr_addr, cli_addr;
+    socklen_t addr_len;
+    char ipv4_addr_str[INET_ADDRSTRLEN];
+
+    // create a TCP socket
+    listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (listen_fd < 0) {
+        fprintf(stderr, "Failed to create TCP socket: %s\n", strerror(errno));
+        return -1;
+    }
+
+    // bind the socket to the port
+    memset(&svr_addr, 0, sizeof(svr_addr));
+    svr_addr.sin_family = AF_INET;
+    svr_addr.sin_addr.s_addr = INADDR_ANY;
+    svr_addr.sin_port = htons(listen_port);
+
+    ret = bind(listen_fd, (struct sockaddr *)&svr_addr, sizeof(svr_addr));
+    if (ret < 0) {
+        fprintf(stderr, "Failed to bind socket: %s\n", strerror(errno));
+        goto err1;
+    }
+
+    // listen for incoming connections
+    ret = listen(listen_fd, 1);
+    if (ret < 0) {
+        fprintf(stderr, "Failed to listen on port %d: %s\n", listen_port,
+                strerror(errno));
+        goto err1;
+    }
+
+    addr_len = sizeof(cli_addr);
+    cli_fd = accept(listen_fd, (struct sockaddr *)&cli_addr, &addr_len);
+    if (cli_fd < 0) {
+        fprintf(stderr, "Failed to accept connection: %s\n", strerror(errno));
+        goto err1;
+    }
+
+    inet_ntop(AF_INET, &cli_addr.sin_addr.s_addr, ipv4_addr_str,
+              INET_ADDRSTRLEN);
+    fprintf(stdout, "[%s at %d]: accept connection from %s\n", __FILE__,
+            __LINE__, ipv4_addr_str);
+
+    // send local QP info to the client
+    ret = write(cli_fd, &local_qp_info, sizeof(local_qp_info));
+    if (ret < 0) {
+        fprintf(stderr, "Failed to send QP info to %s: %s\n", ipv4_addr_str,
+                strerror(errno));
+        goto err2;
+    }
+
+    fprintf(stdout, "[%s at %d]: send QP info "
+            "[LID %#04x QPN %#06x GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] to %s\n", __FILE__,
+            __LINE__,local_qp_info.lid, local_qp_info.qp_num,
+            local_qp_info.gid.raw[0], local_qp_info.gid.raw[1],
+            local_qp_info.gid.raw[2], local_qp_info.gid.raw[3],
+            local_qp_info.gid.raw[4], local_qp_info.gid.raw[5],
+            local_qp_info.gid.raw[6], local_qp_info.gid.raw[7],
+            local_qp_info.gid.raw[8], local_qp_info.gid.raw[9],
+            local_qp_info.gid.raw[10], local_qp_info.gid.raw[11],
+            local_qp_info.gid.raw[12], local_qp_info.gid.raw[13],
+            local_qp_info.gid.raw[14], local_qp_info.gid.raw[15],
+            ipv4_addr_str);
+
+    // receive remote QP info from the client
+    ret = read(cli_fd, remote_qp_info, sizeof(struct qp_info));
+    if (ret < 0) {
+        fprintf(stderr, "Failed to receive QP info from %s: %s\n",
+                ipv4_addr_str, strerror(errno));
+        goto err2;
+    }
+
+    fprintf(stdout, "[%s at %d]: receive QP info "
+            "[LID %#04x QPN %#06x GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] from %s\n", __FILE__,
+            __LINE__, remote_qp_info->lid, remote_qp_info->qp_num,
+            remote_qp_info->gid.raw[0], remote_qp_info->gid.raw[1],
+            remote_qp_info->gid.raw[2], remote_qp_info->gid.raw[3],
+            remote_qp_info->gid.raw[4], remote_qp_info->gid.raw[5],
+            remote_qp_info->gid.raw[6], remote_qp_info->gid.raw[7],
+            remote_qp_info->gid.raw[8], remote_qp_info->gid.raw[9],
+            remote_qp_info->gid.raw[10], remote_qp_info->gid.raw[11],
+            remote_qp_info->gid.raw[12], remote_qp_info->gid.raw[13],
+            remote_qp_info->gid.raw[14], remote_qp_info->gid.raw[15],
+            ipv4_addr_str);
+
+err2:
+    close(cli_fd);
+err1:
+    close(listen_fd);
+    return ret;
+}
+
+int ib_ctx_xchg_qp_info_as_client(const char *svr_addr_str, uint16_t svr_port,
+                                  struct qp_info local_qp_info,
+                                  struct qp_info *remote_qp_info) {
+    int ret = 0;
+    int fd;
+    struct sockaddr_in svr_addr;
+
+    memset(&svr_addr, 0, sizeof(struct sockaddr_in));
+    svr_addr.sin_family = AF_INET;
+    svr_addr.sin_port = htons(svr_port);
+    if (inet_pton(AF_INET, svr_addr_str, &svr_addr.sin_addr) != 1) {
+        fprintf(stderr, "Invalid address or address (%s) not supported",
+                svr_addr_str);
+        return -1;
+    }
+
+    // create a TCP socket
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) {
+        fprintf(stderr, "Failed to create TCP socket: %s\n", strerror(errno));
+        return -1;
+    }
+
+    // connect to the server
+    ret = connect(fd, (struct sockaddr *)&svr_addr, sizeof(svr_addr));
+    if (ret < 0) {
+        fprintf(stderr, "Connect to %s failed: %s\n", svr_addr_str,
+                strerror(errno));
+        goto err;
+    }
+
+    fprintf(stdout, "[%s at %d]: connect to %s\n", __FILE__, __LINE__,
+            svr_addr_str);
+
+    // Send local QP info to the server
+    ret = write(fd, &local_qp_info, sizeof(local_qp_info));
+    if (ret < 0) {
+        fprintf(stderr, "Failed to send QP info to %s: %s\n", svr_addr_str,
+                strerror(errno));
+        goto err;
+    }
+
+    fprintf(stdout, "[%s at %d]: send QP info "
+            "[LID %#04x QPN %#06x GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] to %s\n", __FILE__,
+            __LINE__,local_qp_info.lid, local_qp_info.qp_num,
+            local_qp_info.gid.raw[0], local_qp_info.gid.raw[1],
+            local_qp_info.gid.raw[2], local_qp_info.gid.raw[3],
+            local_qp_info.gid.raw[4], local_qp_info.gid.raw[5],
+            local_qp_info.gid.raw[6], local_qp_info.gid.raw[7],
+            local_qp_info.gid.raw[8], local_qp_info.gid.raw[9],
+            local_qp_info.gid.raw[10], local_qp_info.gid.raw[11],
+            local_qp_info.gid.raw[12], local_qp_info.gid.raw[13],
+            local_qp_info.gid.raw[14], local_qp_info.gid.raw[15],
+            svr_addr_str);
+
+    // Receive remote QP info from the server
+    ret = read(fd, remote_qp_info, sizeof(struct qp_info));
+    if (ret < 0) {
+        fprintf(stderr, "Failed to receive QP info from %s: %s\n",
+                svr_addr_str, strerror(errno));
+        goto err;
+    }
+
+    fprintf(stdout, "[%s at %d]: receive QP info "
+            "[LID %#04x QPN %#06x GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] from %s\n", __FILE__,
+            __LINE__, remote_qp_info->lid, remote_qp_info->qp_num,
+            remote_qp_info->gid.raw[0], remote_qp_info->gid.raw[1],
+            remote_qp_info->gid.raw[2], remote_qp_info->gid.raw[3],
+            remote_qp_info->gid.raw[4], remote_qp_info->gid.raw[5],
+            remote_qp_info->gid.raw[6], remote_qp_info->gid.raw[7],
+            remote_qp_info->gid.raw[8], remote_qp_info->gid.raw[9],
+            remote_qp_info->gid.raw[10], remote_qp_info->gid.raw[11],
+            remote_qp_info->gid.raw[12], remote_qp_info->gid.raw[13],
+            remote_qp_info->gid.raw[14], remote_qp_info->gid.raw[15],
+            svr_addr_str);
+
+err:
+    close(fd);
+    return ret;
 }

@@ -23,9 +23,6 @@ int main() {
     struct ibv_port_attr port_attr;
     union ibv_gid my_gid;
     struct qp_info local_qp_info, remote_qp_info;
-    int sockfd, newsockfd;
-    struct sockaddr_in serv_addr, cli_addr;
-    socklen_t clilen;
 
     // open the device
     context = ib_open_device(NULL);
@@ -94,50 +91,11 @@ int main() {
     local_qp_info.lid = port_attr.lid;
     memcpy(local_qp_info.gid.raw, my_gid.raw, sizeof(local_qp_info.gid));
 
-    // Create a TCP socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-        perror("Failed to create socket");
+    if (ib_ctx_xchg_qp_info_as_server(TCP_PORT, local_qp_info,
+                                   &remote_qp_info) < 0) {
+        fprintf(stderr, "exchange QP info failed\n");
         return 1;
     }
-
-    // Bind the socket to the port
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(TCP_PORT);
-
-    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        perror("Failed to bind socket");
-        return 1;
-    }
-
-    // Listen for incoming connections
-    listen(sockfd, 1);
-    clilen = sizeof(cli_addr);
-    newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
-    if (newsockfd < 0) {
-        perror("Failed to accept connection");
-        return 1;
-    }
-
-    // Send local QP info to the client
-    if (write(newsockfd, &local_qp_info, sizeof(local_qp_info)) < 0) {
-        perror("Failed to send QP info");
-        return 1;
-    }
-
-    // Receive remote QP info from the client
-    if (read(newsockfd, &remote_qp_info, sizeof(remote_qp_info)) < 0) {
-        perror("Failed to receive QP info");
-        return 1;
-    }
-
-    close(newsockfd);
-    close(sockfd);
-
-    print_gid(my_gid);
-    print_gid(remote_qp_info.gid);
 
     // Transition the QP to the RTR state
     if (ib_modify_qp_to_rtr(qp, port_attr.active_mtu, remote_qp_info)) {

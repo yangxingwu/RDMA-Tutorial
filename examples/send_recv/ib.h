@@ -52,4 +52,11 @@ int ib_modify_qp_to_rtr(struct ibv_qp *qp, enum ibv_mtu path_mtu,
                         struct qp_info remote_qp_info);
 int ib_modify_qp_to_rts(struct ibv_qp *qp);
 
+int ib_ctx_xchg_qp_info_as_server(uint16_t listen_port,
+                               struct qp_info local_qp_info,
+                               struct qp_info *remote_qp_info);
+int ib_ctx_xchg_qp_info_as_client(const char *svr_addr_str, uint16_t svr_port,
+                               struct qp_info local_qp_info,
+                               struct qp_info *remote_qp_info);
+
 #endif

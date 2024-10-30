@@ -27,20 +27,9 @@ int main(int argc, char *argv[]) {
     struct ibv_port_attr port_attr;
     union ibv_gid my_gid;
     struct qp_info local_qp_info, remote_qp_info;
-    int sockfd;
-    struct sockaddr_in serv_addr;
 
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <server address>\n", argv[0]);
-        return 1;
-    }
-
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(TCP_PORT);
-    if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0) {
-        fprintf(stderr, "Invalid address or address (%s) not supported",
-                argv[1]);
         return 1;
     }
 
@@ -110,35 +99,11 @@ int main(int argc, char *argv[]) {
     local_qp_info.lid = port_attr.lid;
     memcpy(&local_qp_info.gid, &my_gid, sizeof(local_qp_info.gid));
 
-    // Create a TCP socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-        perror("Failed to create socket");
+    if (ib_ctx_xchg_qp_info_as_client(argv[1], TCP_PORT, local_qp_info,
+                                      &remote_qp_info) < 0) {
+        fprintf(stderr, "exchange QP info failed\n");
         return 1;
     }
-
-    // Connect to the server
-    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        perror("Connection failed");
-        return 1;
-    }
-
-    // Send local QP info to the server
-    if (write(sockfd, &local_qp_info, sizeof(local_qp_info)) < 0) {
-        perror("Failed to send QP info");
-        return 1;
-    }
-
-    // Receive remote QP info from the server
-    if (read(sockfd, &remote_qp_info, sizeof(remote_qp_info)) < 0) {
-        perror("Failed to receive QP info");
-        return 1;
-    }
-
-    close(sockfd);
-
-    print_gid(my_gid);
-    print_gid(remote_qp_info.gid);
 
     // Transition the QP to the RTR state
     if (ib_modify_qp_to_rtr(qp, port_attr.active_mtu, remote_qp_info)) {
