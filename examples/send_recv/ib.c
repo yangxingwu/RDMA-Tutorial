@@ -1,7 +1,6 @@
 #include <infiniband/verbs.h>
 #include <netinet/in.h>
 #include <stdio.h>
-#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <net/if.h>
@@ -286,21 +285,15 @@ err1:
     return ret;
 }
 
-int ib_ctx_xchg_qp_info_as_client(const char *svr_addr_str, uint16_t svr_port,
+int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
                                   struct qp_info local_qp_info,
                                   struct qp_info *remote_qp_info) {
     int ret = 0;
     int fd;
-    struct sockaddr_in svr_addr;
+    char svr_addr_str[INET_ADDRSTRLEN];
 
-    memset(&svr_addr, 0, sizeof(struct sockaddr_in));
-    svr_addr.sin_family = AF_INET;
-    svr_addr.sin_port = htons(svr_port);
-    if (inet_pton(AF_INET, svr_addr_str, &svr_addr.sin_addr) != 1) {
-        fprintf(stderr, "Invalid address or address (%s) not supported",
-                svr_addr_str);
-        return -1;
-    }
+    inet_ntop(AF_INET, &(svr_addr->sin_addr.s_addr), svr_addr_str,
+              INET_ADDRSTRLEN);
 
     // create a TCP socket
     fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -310,7 +303,7 @@ int ib_ctx_xchg_qp_info_as_client(const char *svr_addr_str, uint16_t svr_port,
     }
 
     // connect to the server
-    ret = connect(fd, (struct sockaddr *)&svr_addr, sizeof(svr_addr));
+    ret = connect(fd, (struct sockaddr *)svr_addr, sizeof(struct sockaddr));
     if (ret < 0) {
         fprintf(stderr, "Connect to %s failed: %s\n", svr_addr_str,
                 strerror(errno));

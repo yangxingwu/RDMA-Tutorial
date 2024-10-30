@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <infiniband/verbs.h>
+#include <arpa/inet.h>
 
 /*
  * IB PORT and GID INDEX
@@ -55,7 +56,7 @@ int ib_modify_qp_to_rts(struct ibv_qp *qp);
 int ib_ctx_xchg_qp_info_as_server(uint16_t listen_port,
                                struct qp_info local_qp_info,
                                struct qp_info *remote_qp_info);
-int ib_ctx_xchg_qp_info_as_client(const char *svr_addr_str, uint16_t svr_port,
+int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
                                struct qp_info local_qp_info,
                                struct qp_info *remote_qp_info);
 

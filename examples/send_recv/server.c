@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+
 #include "ib.h"
 
 #define MSG_SIZE 4096
@@ -115,7 +116,7 @@ int main() {
     // prepare local QP info
     local_qp_info.qp_num = qp->qp_num;
     local_qp_info.lid = port_attr.lid;
-    memcpy(local_qp_info.gid.raw, my_gid.raw, sizeof(local_qp_info.gid));
+    memcpy(&local_qp_info.gid, &my_gid, sizeof(local_qp_info.gid));
 
     if (ib_ctx_xchg_qp_info_as_server(TCP_PORT, local_qp_info,
                                    &remote_qp_info) < 0) {
