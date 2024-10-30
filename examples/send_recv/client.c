@@ -27,30 +27,37 @@ int main(int argc, char *argv[]) {
     struct ibv_port_attr port_attr;
     union ibv_gid my_gid;
     struct qp_info local_qp_info, remote_qp_info;
+    int ret = 0;
 
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <server address>\n", argv[0]);
-        return 1;
+        return -1;
     }
 
     context = ib_open_device(NULL);
     if (!context) {
-        perror("Failed to open device");
-        return 1;
+        fprintf(stderr, "Failed to open IB device: %s\n", strerror(errno));
+        return -1;
     }
 
     // Allocate a protection domain
     pd = ibv_alloc_pd(context);
     if (!pd) {
-        perror("Failed to allocate PD");
-        return 1;
+        fprintf(stderr, "Failed to allocate protection domain: %s\n",
+                strerror(errno));
+        ret = -1;
+        goto err1;
     }
+
+    fprintf(stdout, "[%s at %d]: Protection Domain allocated\n", __FILE__,
+            __LINE__);
 
     // Allocate memory
     buf = malloc(MSG_SIZE);
     if (!buf) {
-        perror("Failed to allocate memory");
-        return 1;
+        fprintf(stderr, "Failed to allocate memory: %s\n", strerror(errno));
+        ret = -1;
+        goto err2;
     }
 
     // Register the memory region
@@ -58,41 +65,61 @@ int main(int argc, char *argv[]) {
                     IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
                     IBV_ACCESS_REMOTE_WRITE);
     if (!mr) {
-        perror("Failed to register MR");
-        return 1;
+        fprintf(stderr, "Failed to register memory region: %s\n",
+                strerror(errno));
+        ret = -1;
+        goto err3;
     }
+
+    fprintf(stdout, "[%s at %d]: Memory Region registered\n", __FILE__,
+            __LINE__);
 
     // Create a completion queue
     cq = ibv_create_cq(context, 1, NULL, NULL, 0);
     if (!cq) {
-        perror("Failed to create CQ");
-        return 1;
+        fprintf(stderr, "Failed to create Completion Queue: %s\n",
+                strerror(errno));
+        ret = -1;
+        goto err4;
     }
+
+    fprintf(stdout, "[%s at %d]: Completion Queue created\n", __FILE__,
+            __LINE__);
 
     // Create a queue pair
     qp = ib_create_qp(cq, pd);
     if (!qp) {
-        perror("Failed to create QP");
-        return 1;
+        fprintf(stderr, "Failed to create Queue Pair: %s\n", strerror(errno));
+        ret = -1;
+        goto err5;
     }
+
+    fprintf(stdout, "[%s at %d]: Queue Pair created\n", __FILE__,
+            __LINE__);
 
     // Get port attributes
     if (ibv_query_port(context, IB_PORT, &port_attr)) {
-        perror("Failed to query port");
-        return 1;
+        fprintf(stderr, "Failed to query port: %s\n", strerror(errno));
+        ret = -1;
+        goto err6;
     }
 
     // Get GID
     if (ibv_query_gid(context, IB_PORT, IB_GID_INDEX, &my_gid)) {
-        perror("Failed to query GID");
-        return 1;
+        fprintf(stderr, "Failed to query GID: %s\n", strerror(errno));
+        ret = -1;
+        goto err6;
     }
 
-    // Transition the QP to the INIT state
+    // transition the QP to the INIT state
     if (ib_modify_qp_to_init(qp)) {
-        perror("Failed to modify QP to INIT");
-        return 1;
+        fprintf(stderr, "Failed to modify QP to INIT: %s\n", strerror(errno));
+        ret = -1;
+        goto err6;
     }
+
+    fprintf(stdout, "[%s at %d]: Queue Pair transit to INIT state\n", __FILE__,
+            __LINE__);
 
     // Prepare local QP info
     local_qp_info.qp_num = qp->qp_num;
@@ -102,20 +129,32 @@ int main(int argc, char *argv[]) {
     if (ib_ctx_xchg_qp_info_as_client(argv[1], TCP_PORT, local_qp_info,
                                       &remote_qp_info) < 0) {
         fprintf(stderr, "exchange QP info failed\n");
-        return 1;
+        ret = -1;
+        goto err6;
     }
+
+    fprintf(stdout, "[%s at %d]: Queue Pair Info exchanged\n", __FILE__,
+            __LINE__);
 
     // Transition the QP to the RTR state
     if (ib_modify_qp_to_rtr(qp, port_attr.active_mtu, remote_qp_info)) {
-        perror("Failed to modify QP to RTR");
-        return 1;
+        fprintf(stderr, "Failed to modify QP to RTR\n");
+        ret = -1;
+        goto err6;
     }
+
+    fprintf(stdout, "[%s at %d]: Queue Pair transit to RTR state\n", __FILE__,
+            __LINE__);
 
     // Transition the QP to the RTS state
     if (ib_modify_qp_to_rts(qp)) {
-        perror("Failed to modify QP to RTS");
-        return 1;
+        fprintf(stderr, "Failed to modify QP to RTS\n");
+        ret = -1;
+        goto err6;
     }
+
+    fprintf(stdout, "[%s at %d]: Queue Pair transit to RTS state\n", __FILE__,
+            __LINE__);
 
     // Prepare the message
     strcpy(buf, "Hello, RDMA!");
@@ -133,9 +172,13 @@ int main(int argc, char *argv[]) {
     send_wr.send_flags = IBV_SEND_SIGNALED;
 
     if (ibv_post_send(qp, &send_wr, &bad_send_wr)) {
-        perror("Failed to post send WR");
-        return 1;
+        fprintf(stderr, "Failed to post send WR\n");
+        ret = -1;
+        goto err6;
     }
+
+    fprintf(stdout, "[%s at %d]: A work request has been posted to send queue\n",
+            __FILE__, __LINE__);
 
     // Wait for the send completion
     struct ibv_wc wc;
@@ -144,18 +187,24 @@ int main(int argc, char *argv[]) {
     if (wc.status != IBV_WC_SUCCESS) {
         fprintf(stderr, "Failed status %s (%d) for wr_id %d\n",
                 ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
-        return 1;
+        ret = -1;
+        goto err6;
     }
 
-    printf("Message sent: %s\n", buf);
+    fprintf(stdout, "[%s at %d]: Message sent: %s\n", __FILE__, __LINE__,
+            buf);
 
-    // Clean up
+err6:
     ibv_destroy_qp(qp);
+err5:
     ibv_destroy_cq(cq);
+err4:
     ibv_dereg_mr(mr);
+err3:
     free(buf);
+err2:
     ibv_dealloc_pd(pd);
+err1:
     ibv_close_device(context);
-
-    return 0;
+    return ret;
 }

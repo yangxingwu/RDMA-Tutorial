@@ -23,70 +23,96 @@ int main() {
     struct ibv_port_attr port_attr;
     union ibv_gid my_gid;
     struct qp_info local_qp_info, remote_qp_info;
+    int ret = 0;
 
     // open the device
     context = ib_open_device(NULL);
     if (!context) {
-        perror("Failed to open device");
-        return 1;
+        fprintf(stderr, "Failed to open IB device: %s\n", strerror(errno));
+        return -1;
     }
 
     // allocate a protection domain
     pd = ibv_alloc_pd(context);
     if (!pd) {
-        perror("Failed to allocate PD");
-        return 1;
+        fprintf(stderr, "Failed to allocate protection domain: %s\n",
+                strerror(errno));
+        ret = -1;
+        goto err1;
     }
+
+    fprintf(stdout, "[%s at %d]: Protection Domain allocated\n", __FILE__,
+            __LINE__);
 
     // allocate memory
-    buf = malloc(MSG_SIZE);
+    buf = (char *)malloc(MSG_SIZE);
     if (!buf) {
-        perror("Failed to allocate memory");
-        return 1;
+        fprintf(stderr, "Failed to allocate memory: %s\n", strerror(errno));
+        ret = -1;
+        goto err2;
     }
 
-    // Register the memory region
-    mr = ibv_reg_mr(pd, buf, MSG_SIZE,
-                    IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
-                    IBV_ACCESS_REMOTE_WRITE);
+    // register the memory region
+    mr = ibv_reg_mr(pd, buf, MSG_SIZE, IBV_ACCESS_LOCAL_WRITE |
+                    IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
     if (!mr) {
-        perror("Failed to register MR");
-        return 1;
+        fprintf(stderr, "Failed to register memory region: %s\n",
+                strerror(errno));
+        ret = -1;
+        goto err3;
     }
 
-    // Create a completion queue
+    fprintf(stdout, "[%s at %d]: Memory Region registered\n", __FILE__,
+            __LINE__);
+
+    // create a completion queue
     cq = ibv_create_cq(context, 1, NULL, NULL, 0);
     if (!cq) {
-        perror("Failed to create CQ");
-        return 1;
+        fprintf(stderr, "Failed to create Completion Queue: %s\n",
+                strerror(errno));
+        ret = -1;
+        goto err4;
     }
 
-    // Create a queue pair
+    fprintf(stdout, "[%s at %d]: Completion Queue created\n", __FILE__,
+            __LINE__);
+
+    // create a queue pair
     qp = ib_create_qp(cq, pd);
     if (!qp) {
-        perror("Failed to create QP");
-        return 1;
+        fprintf(stderr, "Failed to create Queue Pair: %s\n", strerror(errno));
+        ret = -1;
+        goto err5;
     }
 
-    // Get port attributes
+    fprintf(stdout, "[%s at %d]: Queue Pair created\n", __FILE__,
+            __LINE__);
+
+    // get port attributes
     if (ibv_query_port(context, IB_PORT, &port_attr)) {
-        perror("Failed to query port");
-        return 1;
+        fprintf(stderr, "Failed to query port: %s\n", strerror(errno));
+        ret = -1;
+        goto err6;
     }
 
-    // Get GID
+    // get GID
     if (ibv_query_gid(context, IB_PORT, IB_GID_INDEX, &my_gid)) {
-        perror("Failed to query GID");
-        return 1;
+        fprintf(stderr, "Failed to query GID: %s\n", strerror(errno));
+        ret = -1;
+        goto err6;
     }
 
-    // Transition the QP to the INIT state
+    // transition the QP to the INIT state
     if (ib_modify_qp_to_init(qp)) {
-        perror("Failed to modify QP to INIT");
-        return 1;
+        fprintf(stderr, "Failed to modify QP to INIT: %s\n", strerror(errno));
+        ret = -1;
+        goto err6;
     }
 
-    // Prepare local QP info
+    fprintf(stdout, "[%s at %d]: Queue Pair transit to INIT state\n", __FILE__,
+            __LINE__);
+
+    // prepare local QP info
     local_qp_info.qp_num = qp->qp_num;
     local_qp_info.lid = port_attr.lid;
     memcpy(local_qp_info.gid.raw, my_gid.raw, sizeof(local_qp_info.gid));
@@ -94,20 +120,32 @@ int main() {
     if (ib_ctx_xchg_qp_info_as_server(TCP_PORT, local_qp_info,
                                    &remote_qp_info) < 0) {
         fprintf(stderr, "exchange QP info failed\n");
-        return 1;
+        ret = -1;
+        goto err6;
     }
+
+    fprintf(stdout, "[%s at %d]: Queue Pair Info exchanged\n", __FILE__,
+            __LINE__);
 
     // Transition the QP to the RTR state
     if (ib_modify_qp_to_rtr(qp, port_attr.active_mtu, remote_qp_info)) {
-        perror("Failed to modify QP to RTR");
-        return 1;
+        fprintf(stderr, "Failed to modify QP to RTR\n");
+        ret = -1;
+        goto err6;
     }
+
+    fprintf(stdout, "[%s at %d]: Queue Pair transit to RTR state\n", __FILE__,
+            __LINE__);
 
     // Transition the QP to the RTS state
     if (ib_modify_qp_to_rts(qp)) {
-        perror("Failed to modify QP to RTS");
-        return 1;
+        fprintf(stderr, "Failed to modify QP to RTS\n");
+        ret = -1;
+        goto err6;
     }
+
+    fprintf(stdout, "[%s at %d]: Queue Pair transit to RTS state\n", __FILE__,
+            __LINE__);
 
     // Post a receive request
     memset(&sge, 0, sizeof(sge));
@@ -120,9 +158,13 @@ int main() {
     recv_wr.num_sge = 1;
 
     if (ibv_post_recv(qp, &recv_wr, &bad_recv_wr)) {
-        perror("Failed to post receive WR");
-        return 1;
+        fprintf(stderr, "Failed to post receive WR\n");
+        ret = -1;
+        goto err6;
     }
+
+    fprintf(stdout, "[%s at %d]: A work request has been posted to receive queue\n",
+            __FILE__, __LINE__);
 
     // Wait for the receive completion
     struct ibv_wc wc;
@@ -131,18 +173,24 @@ int main() {
     if (wc.status != IBV_WC_SUCCESS) {
         fprintf(stderr, "Failed status %s (%d) for wr_id %d\n",
                 ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
-        return 1;
+        ret = -1;
+        goto err6;
     }
 
-    printf("Received message: %s\n", buf);
+    fprintf(stdout, "[%s at %d]: Received message: %s\n", __FILE__, __LINE__,
+            buf);
 
-    // Clean up
+err6:
     ibv_destroy_qp(qp);
+err5:
     ibv_destroy_cq(cq);
+err4:
     ibv_dereg_mr(mr);
+err3:
     free(buf);
+err2:
     ibv_dealloc_pd(pd);
+err1:
     ibv_close_device(context);
-
-    return 0;
+    return ret;
 }
