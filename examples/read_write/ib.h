@@ -36,7 +36,8 @@
 #define IB_PORT             1
 #define IB_GID_INDEX        3
 
-#define MSG_SIZE            4096
+#define MSG_SIZE            128
+#define MR_SIZE             (MSG_SIZE * 2)
 #define TCP_PORT            12345
 
 #define GID_LEN             16
@@ -45,6 +46,8 @@ struct qp_info {
     uint32_t        qp_num;
     uint16_t        lid;
     union ibv_gid   gid;
+    uint32_t        rkey;
+    uint64_t        raddr;
 };
 
 void print_gid(union ibv_gid gid);
@@ -66,5 +69,13 @@ int ib_post_send(const char *send_buf, uint32_t send_buf_size, uint32_t lkey,
                  uint64_t wr_id, struct ibv_qp *qp);
 int ib_post_recv(const char *recv_buf, uint32_t recv_buf_size, uint32_t lkey,
                  uint64_t wr_id, struct ibv_qp *qp);
+
+int ib_post_write_signaled(const char *send_buf, uint32_t send_buf_size,
+                           uint32_t lkey, uint64_t wr_id, uint32_t rkey,
+                           uint64_t raddr, struct ibv_qp *qp);
+
+int ib_post_write_unsignaled(const char *send_buf, uint32_t send_buf_size,
+                           uint32_t lkey, uint64_t wr_id, uint32_t rkey,
+                           uint64_t raddr, struct ibv_qp *qp);
 
 #endif

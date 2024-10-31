@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
     struct ibv_mr *mr;
     struct ibv_cq *cq;
     struct ibv_qp *qp;
-    char *buf;
+    char *buf, *recv_buf, *send_buf;
     struct ibv_port_attr port_attr;
     union ibv_gid my_gid;
     struct qp_info local_qp_info, remote_qp_info;
@@ -56,14 +56,18 @@ int main(int argc, char *argv[]) {
             __LINE__);
 
     // register the memory region
-    buf = malloc(MSG_SIZE);
+    //
+    // the first part of memory region is for receive buffer
+    // the second patr of memory region is for send buffer
+    buf = (char *)malloc(MR_SIZE);
+    memset(buf, 0, MR_SIZE);
     if (!buf) {
         fprintf(stderr, "Failed to allocate memory: %s\n", strerror(errno));
         ret = -1;
         goto err2;
     }
 
-    mr = ibv_reg_mr(pd, buf, MSG_SIZE,
+    mr = ibv_reg_mr(pd, buf, MR_SIZE,
                     IBV_ACCESS_LOCAL_WRITE |
                     IBV_ACCESS_REMOTE_READ |
                     IBV_ACCESS_REMOTE_WRITE);
@@ -74,8 +78,12 @@ int main(int argc, char *argv[]) {
         goto err3;
     }
 
-    fprintf(stdout, "[%s at %d]: Memory Region registered\n", __FILE__,
-            __LINE__);
+    recv_buf = buf;
+    send_buf= buf + MSG_SIZE;
+
+    fprintf(stdout, "[%s at %d]: Memory Region registered. "
+            "Recv bufffer: %p, Send buffer: %p\n", __FILE__, __LINE__,
+            recv_buf, send_buf);
 
     // create a completion queue
     cq = ibv_create_cq(context, 1, NULL, NULL, 0);
@@ -117,6 +125,8 @@ int main(int argc, char *argv[]) {
     // exchange QP info
     local_qp_info.qp_num = qp->qp_num;
     local_qp_info.lid = port_attr.lid;
+    local_qp_info.raddr = (uint64_t)recv_buf;
+    local_qp_info.rkey = mr->rkey;
     memcpy(&local_qp_info.gid, &my_gid, sizeof(local_qp_info.gid));
 
     if (ib_ctx_xchg_qp_info_as_client(&svr_addr, local_qp_info,
@@ -161,10 +171,40 @@ int main(int argc, char *argv[]) {
 
     int num_of_loops = 1;
     int total_loops = 10;
+/*
     int num_of_cq = 0;
     struct ibv_wc wc;
+*/
 
     for (; num_of_loops <= total_loops; num_of_loops++) {
+        // prepare the message
+        memset(send_buf, num_of_loops, MSG_SIZE);
+
+        // write to remote end
+        if (num_of_loops % 2 == 0) {
+            ret = ib_post_write_signaled(send_buf, MSG_SIZE, mr->lkey, 0,
+                                   remote_qp_info.rkey, remote_qp_info.raddr, qp);
+        } else {
+            ret = ib_post_write_unsignaled(send_buf, MSG_SIZE, mr->lkey, 0,
+                                     remote_qp_info.rkey, remote_qp_info.raddr, qp);
+        }
+        if (ret != 0) {
+            fprintf(stderr, "Failed to write to remote end for round %d: %s\n",
+                    num_of_loops, strerror(errno));
+            ret = -1;
+            goto err6;
+        }
+
+        fprintf(stdout, "[%s at %d]: Message sent for round %d\n", __FILE__,
+                __LINE__, num_of_loops);
+
+        // wait for remote info
+        while (recv_buf[0] != num_of_loops && recv_buf[MSG_SIZE - 1] != num_of_loops) {}
+
+        fprintf(stdout, "[%s at %d]: Message received for round %d\n", __FILE__,
+                __LINE__, num_of_loops);
+
+#if 0
         // prepare the message
         snprintf(buf, MSG_SIZE, "Hello from client: round %d!", num_of_loops);
 
@@ -224,6 +264,7 @@ int main(int argc, char *argv[]) {
 
         fprintf(stdout, "[%s at %d]: Received message: %s\n", __FILE__, __LINE__,
                 buf);
+#endif
     }
 
 err6:

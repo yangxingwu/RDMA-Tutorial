@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <net/if.h>
+#include <inttypes.h>
 #include "ib.h"
 
 void print_gid(union ibv_gid gid) {
@@ -243,9 +244,9 @@ int ib_ctx_xchg_qp_info_as_server(struct qp_info local_qp_info,
     }
 
     fprintf(stdout, "[%s at %d]: send QP info "
-            "[LID %#04x QPN %#06x GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR %"PRIu64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] to %s\n", __FILE__,
-            __LINE__,local_qp_info.lid, local_qp_info.qp_num,
+            __LINE__,local_qp_info.lid, local_qp_info.qp_num, local_qp_info.raddr,
             local_qp_info.gid.raw[0], local_qp_info.gid.raw[1],
             local_qp_info.gid.raw[2], local_qp_info.gid.raw[3],
             local_qp_info.gid.raw[4], local_qp_info.gid.raw[5],
@@ -265,9 +266,9 @@ int ib_ctx_xchg_qp_info_as_server(struct qp_info local_qp_info,
     }
 
     fprintf(stdout, "[%s at %d]: receive QP info "
-            "[LID %#04x QPN %#06x GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR %"PRIu64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] from %s\n", __FILE__,
-            __LINE__, remote_qp_info->lid, remote_qp_info->qp_num,
+            __LINE__, remote_qp_info->lid, remote_qp_info->qp_num, remote_qp_info->raddr,
             remote_qp_info->gid.raw[0], remote_qp_info->gid.raw[1],
             remote_qp_info->gid.raw[2], remote_qp_info->gid.raw[3],
             remote_qp_info->gid.raw[4], remote_qp_info->gid.raw[5],
@@ -322,9 +323,9 @@ int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
     }
 
     fprintf(stdout, "[%s at %d]: send QP info "
-            "[LID %#04x QPN %#06x GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR %"PRIu64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] to %s\n", __FILE__,
-            __LINE__,local_qp_info.lid, local_qp_info.qp_num,
+            __LINE__,local_qp_info.lid, local_qp_info.qp_num, local_qp_info.raddr,
             local_qp_info.gid.raw[0], local_qp_info.gid.raw[1],
             local_qp_info.gid.raw[2], local_qp_info.gid.raw[3],
             local_qp_info.gid.raw[4], local_qp_info.gid.raw[5],
@@ -344,9 +345,9 @@ int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
     }
 
     fprintf(stdout, "[%s at %d]: receive QP info "
-            "[LID %#04x QPN %#06x GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR %"PRIu64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] from %s\n", __FILE__,
-            __LINE__, remote_qp_info->lid, remote_qp_info->qp_num,
+            __LINE__, remote_qp_info->lid, remote_qp_info->qp_num, remote_qp_info->raddr,
             remote_qp_info->gid.raw[0], remote_qp_info->gid.raw[1],
             remote_qp_info->gid.raw[2], remote_qp_info->gid.raw[3],
             remote_qp_info->gid.raw[4], remote_qp_info->gid.raw[5],
@@ -402,4 +403,51 @@ int ib_post_recv(const char *recv_buf, uint32_t recv_buf_size, uint32_t lkey,
     };
 
     return ibv_post_recv(qp, &recv_wr, &bad_recv_wr);
+}
+
+int ib_post_write_signaled(const char *send_buf, uint32_t send_buf_size,
+                           uint32_t lkey, uint64_t wr_id, uint32_t rkey,
+                           uint64_t raddr, struct ibv_qp *qp) {
+    struct ibv_send_wr *bad_send_wr;
+
+    struct ibv_sge sge = {
+        .addr   = (uint64_t)send_buf,
+        .length = send_buf_size,
+        .lkey   = lkey
+    };
+
+    struct ibv_send_wr send_wr = {
+        .wr_id                  = wr_id,
+        .sg_list                = &sge,
+        .num_sge                = 1,
+        .opcode                 = IBV_WR_RDMA_WRITE,
+        .send_flags             = IBV_SEND_SIGNALED,
+        .wr.rdma.remote_addr    = raddr,
+        .wr.rdma.rkey           = rkey,
+    };
+
+    return ibv_post_send(qp, &send_wr, &bad_send_wr);
+}
+
+int ib_post_write_unsignaled(const char *send_buf, uint32_t send_buf_size,
+                           uint32_t lkey, uint64_t wr_id, uint32_t rkey,
+                           uint64_t raddr, struct ibv_qp *qp) {
+    struct ibv_send_wr *bad_send_wr;
+
+    struct ibv_sge sge = {
+        .addr   = (uint64_t)send_buf,
+        .length = send_buf_size,
+        .lkey   = lkey
+    };
+
+    struct ibv_send_wr send_wr = {
+        .wr_id                  = wr_id,
+        .sg_list                = &sge,
+        .num_sge                = 1,
+        .opcode                 = IBV_WR_RDMA_WRITE,
+        .wr.rdma.remote_addr    = raddr,
+        .wr.rdma.rkey           = rkey,
+    };
+
+    return ibv_post_send(qp, &send_wr, &bad_send_wr);
 }
