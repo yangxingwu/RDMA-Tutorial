@@ -143,29 +143,72 @@ int main() {
     fprintf(stdout, "[%s at %d]: Queue Pair transit to RTS state\n", __FILE__,
             __LINE__);
 
-    // Post a receive request
-    if (ib_post_recv(buf, MSG_SIZE, mr->lkey, 0, qp)) {
-        fprintf(stderr, "Failed to post receive WR\n");
-        ret = -1;
-        goto err6;
-    }
-
-    fprintf(stdout, "[%s at %d]: A work request has been posted to receive queue\n",
-            __FILE__, __LINE__);
-
-    // Wait for the receive completion
+    int num_of_loops = 1;
+    int total_loops = 10;
+    int num_of_cq = 0;
     struct ibv_wc wc;
-    while (ibv_poll_cq(cq, 1, &wc) == 0);
 
-    if (wc.status != IBV_WC_SUCCESS) {
-        fprintf(stderr, "Failed status %s (%d) for wr_id %d\n",
-                ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
-        ret = -1;
-        goto err6;
+    for (; num_of_loops <= total_loops; num_of_loops++) {
+        // post a recv request
+        if (ib_post_recv(buf, MSG_SIZE, mr->lkey, 0, qp)) {
+            fprintf(stderr, "Failed to post receive WR\n");
+            ret = -1;
+            goto err6;
+        }
+
+        // wait for the recv completion
+        do {
+            num_of_cq = ibv_poll_cq(cq, 1, &wc);
+        } while (num_of_cq == 0);
+
+        if (num_of_cq < 0) {
+            fprintf(stderr, "Failed to poll completion queue: %s\n",
+                    strerror(errno));
+            goto err6;
+        }
+
+        // verify the completion status
+        if (wc.status != IBV_WC_SUCCESS) {
+            fprintf(stderr, "Failed status %s (%d) for wr_id %d\n",
+                    ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
+            goto err6;
+        }
+
+        fprintf(stdout, "[%s at %d]: Received message: %s\n", __FILE__, __LINE__,
+                buf);
+
+        // prepare the message
+        snprintf(buf, MSG_SIZE, "Reply from server: round %d!", num_of_loops);
+
+        // post a send request
+        if (ib_post_send(buf, MSG_SIZE, mr->lkey, 0, qp)) {
+            fprintf(stderr, "Failed to post send WR for round %d\n",
+                    num_of_loops);
+            ret = -1;
+            goto err6;
+        }
+
+        // wait for the send completion
+        do {
+            num_of_cq = ibv_poll_cq(cq, 1, &wc);
+        } while (num_of_cq == 0);
+
+        if (num_of_cq < 0) {
+            fprintf(stderr, "Failed to poll completion queue: %s\n",
+                    strerror(errno));
+            goto err6;
+        }
+
+        // verify the completion status
+        if (wc.status != IBV_WC_SUCCESS) {
+            fprintf(stderr, "Failed status %s (%d) for wr_id %d\n",
+                    ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
+            goto err6;
+        }
+
+        fprintf(stdout, "[%s at %d]: Message sent: %s\n", __FILE__, __LINE__,
+                buf);
     }
-
-    fprintf(stdout, "[%s at %d]: Received message: %s\n", __FILE__, __LINE__,
-            buf);
 
 err6:
     ibv_destroy_qp(qp);
