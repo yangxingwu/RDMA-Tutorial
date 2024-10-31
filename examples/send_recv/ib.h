@@ -62,4 +62,9 @@ int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
                                struct qp_info local_qp_info,
                                struct qp_info *remote_qp_info);
 
+int ib_post_send(const char *send_buf, uint32_t send_buf_size, uint32_t lkey,
+                 uint64_t wr_id, struct ibv_qp *qp);
+int ib_post_recv(const char *recv_buf, uint32_t recv_buf_size, uint32_t lkey,
+                 uint64_t wr_id, struct ibv_qp *qp);
+
 #endif

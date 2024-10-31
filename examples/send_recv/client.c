@@ -16,8 +16,6 @@ int main(int argc, char *argv[]) {
     struct ibv_mr *mr;
     struct ibv_cq *cq;
     struct ibv_qp *qp;
-    struct ibv_sge sge;
-    struct ibv_send_wr send_wr, *bad_send_wr;
     char *buf;
     struct ibv_port_attr port_attr;
     union ibv_gid my_gid;
@@ -165,18 +163,7 @@ int main(int argc, char *argv[]) {
     strcpy(buf, "Hello, RDMA!");
 
     // post a send request
-    memset(&sge, 0, sizeof(sge));
-    sge.addr = (uintptr_t)buf;
-    sge.length = MSG_SIZE;
-    sge.lkey = mr->lkey;
-
-    memset(&send_wr, 0, sizeof(send_wr));
-    send_wr.sg_list = &sge;
-    send_wr.num_sge = 1;
-    send_wr.opcode = IBV_WR_SEND;
-    send_wr.send_flags = IBV_SEND_SIGNALED;
-
-    if (ibv_post_send(qp, &send_wr, &bad_send_wr)) {
+    if (ib_post_send(buf, MSG_SIZE, mr->lkey, 0, qp)) {
         fprintf(stderr, "Failed to post send WR\n");
         ret = -1;
         goto err6;

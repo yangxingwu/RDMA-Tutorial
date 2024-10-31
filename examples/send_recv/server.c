@@ -15,8 +15,6 @@ int main() {
     struct ibv_mr *mr;
     struct ibv_cq *cq;
     struct ibv_qp *qp;
-    struct ibv_sge sge;
-    struct ibv_recv_wr recv_wr, *bad_recv_wr;
     char *buf;
     struct ibv_port_attr port_attr;
     union ibv_gid my_gid;
@@ -146,16 +144,7 @@ int main() {
             __LINE__);
 
     // Post a receive request
-    memset(&sge, 0, sizeof(sge));
-    sge.addr = (uintptr_t)buf;
-    sge.length = MSG_SIZE;
-    sge.lkey = mr->lkey;
-
-    memset(&recv_wr, 0, sizeof(recv_wr));
-    recv_wr.sg_list = &sge;
-    recv_wr.num_sge = 1;
-
-    if (ibv_post_recv(qp, &recv_wr, &bad_recv_wr)) {
+    if (ib_post_recv(buf, MSG_SIZE, mr->lkey, 0, qp)) {
         fprintf(stderr, "Failed to post receive WR\n");
         ret = -1;
         goto err6;

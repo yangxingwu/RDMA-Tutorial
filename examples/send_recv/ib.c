@@ -1,5 +1,6 @@
 #include <infiniband/verbs.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -359,4 +360,46 @@ int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
 err:
     close(fd);
     return ret;
+}
+
+int ib_post_send(const char *send_buf, uint32_t send_buf_size, uint32_t lkey,
+                 uint64_t wr_id, struct ibv_qp *qp) {
+    struct ibv_send_wr *bad_send_wr;
+
+    struct ibv_sge sge = {
+        .addr   = (uint64_t)send_buf,
+        .length = send_buf_size,
+        .lkey   = lkey
+    };
+
+    struct ibv_send_wr send_wr = {
+        .wr_id      = wr_id,
+        .next       = NULL,
+        .sg_list    = &sge,
+        .num_sge    = 1,
+        .opcode     = IBV_WR_SEND,
+        .send_flags = IBV_SEND_SIGNALED,
+    };
+
+    return ibv_post_send(qp, &send_wr, &bad_send_wr);
+}
+
+int ib_post_recv(const char *recv_buf, uint32_t recv_buf_size, uint32_t lkey,
+                 uint64_t wr_id, struct ibv_qp *qp) {
+    struct ibv_recv_wr *bad_recv_wr;
+
+    struct ibv_sge sge = {
+        .addr   = (uint64_t)recv_buf,
+        .length = recv_buf_size,
+        .lkey   = lkey
+    };
+
+    struct ibv_recv_wr recv_wr = {
+        .wr_id      = wr_id,
+        .next       = NULL,
+        .sg_list    = &sge,
+        .num_sge    = 1
+    };
+
+    return ibv_post_recv(qp, &recv_wr, &bad_recv_wr);
 }
