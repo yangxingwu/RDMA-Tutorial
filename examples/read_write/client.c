@@ -171,10 +171,6 @@ int main(int argc, char *argv[]) {
 
     int num_of_loops = 1;
     int total_loops = 10;
-/*
-    int num_of_cq = 0;
-    struct ibv_wc wc;
-*/
 
     for (; num_of_loops <= total_loops; num_of_loops++) {
         // prepare the message
@@ -203,68 +199,6 @@ int main(int argc, char *argv[]) {
 
         fprintf(stdout, "[%s at %d]: Message received for round %d\n", __FILE__,
                 __LINE__, num_of_loops);
-
-#if 0
-        // prepare the message
-        snprintf(buf, MSG_SIZE, "Hello from client: round %d!", num_of_loops);
-
-        // post a send request
-        if (ib_post_send(buf, MSG_SIZE, mr->lkey, 0, qp)) {
-            fprintf(stderr, "Failed to post send WR for round %d\n",
-                    num_of_loops);
-            ret = -1;
-            goto err6;
-        }
-
-        // wait for the send completion
-        do {
-            num_of_cq = ibv_poll_cq(cq, 1, &wc);
-        } while (num_of_cq == 0);
-
-        if (num_of_cq < 0) {
-            fprintf(stderr, "Failed to poll completion queue: %s\n",
-                    strerror(errno));
-            goto err6;
-        }
-
-        // verify the completion status
-        if (wc.status != IBV_WC_SUCCESS) {
-            fprintf(stderr, "Failed status %s (%d) for wr_id %d\n",
-                    ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
-            goto err6;
-        }
-
-        fprintf(stdout, "[%s at %d]: Message sent: %s\n", __FILE__, __LINE__,
-                buf);
-
-        // post a recv request
-        if (ib_post_recv(buf, MSG_SIZE, mr->lkey, 0, qp)) {
-            fprintf(stderr, "Failed to post receive WR\n");
-            ret = -1;
-            goto err6;
-        }
-
-        // wait for the recv completion
-        do {
-            num_of_cq = ibv_poll_cq(cq, 1, &wc);
-        } while (num_of_cq == 0);
-
-        if (num_of_cq < 0) {
-            fprintf(stderr, "Failed to poll completion queue: %s\n",
-                    strerror(errno));
-            goto err6;
-        }
-
-        // verify the completion status
-        if (wc.status != IBV_WC_SUCCESS) {
-            fprintf(stderr, "Failed status %s (%d) for wr_id %d\n",
-                    ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
-            goto err6;
-        }
-
-        fprintf(stdout, "[%s at %d]: Received message: %s\n", __FILE__, __LINE__,
-                buf);
-#endif
     }
 
 err6:
