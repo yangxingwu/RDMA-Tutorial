@@ -36,6 +36,9 @@
 #define IB_PORT             1
 #define IB_GID_INDEX        3
 
+#define MSG_SIZE            4096
+#define TCP_PORT            12345
+
 #define GID_LEN             16
 
 struct qp_info {
@@ -53,9 +56,8 @@ int ib_modify_qp_to_rtr(struct ibv_qp *qp, enum ibv_mtu path_mtu,
                         struct qp_info remote_qp_info);
 int ib_modify_qp_to_rts(struct ibv_qp *qp);
 
-int ib_ctx_xchg_qp_info_as_server(uint16_t listen_port,
-                               struct qp_info local_qp_info,
-                               struct qp_info *remote_qp_info);
+int ib_ctx_xchg_qp_info_as_server(struct qp_info local_qp_info,
+                                  struct qp_info *remote_qp_info);
 int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
                                struct qp_info local_qp_info,
                                struct qp_info *remote_qp_info);

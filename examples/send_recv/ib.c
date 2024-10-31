@@ -186,9 +186,8 @@ int ib_modify_qp_to_rts(struct ibv_qp *qp) {
                          IBV_QP_MAX_QP_RD_ATOMIC);
 }
 
-int ib_ctx_xchg_qp_info_as_server(uint16_t listen_port,
-                               struct qp_info local_qp_info,
-                               struct qp_info *remote_qp_info) {
+int ib_ctx_xchg_qp_info_as_server(struct qp_info local_qp_info,
+                                  struct qp_info *remote_qp_info) {
     int ret = 0;
     int listen_fd, cli_fd;
     struct sockaddr_in svr_addr, cli_addr;
@@ -206,7 +205,7 @@ int ib_ctx_xchg_qp_info_as_server(uint16_t listen_port,
     memset(&svr_addr, 0, sizeof(svr_addr));
     svr_addr.sin_family = AF_INET;
     svr_addr.sin_addr.s_addr = INADDR_ANY;
-    svr_addr.sin_port = htons(listen_port);
+    svr_addr.sin_port = htons(TCP_PORT);
 
     ret = bind(listen_fd, (struct sockaddr *)&svr_addr, sizeof(svr_addr));
     if (ret < 0) {
@@ -217,7 +216,7 @@ int ib_ctx_xchg_qp_info_as_server(uint16_t listen_port,
     // listen for incoming connections
     ret = listen(listen_fd, 1);
     if (ret < 0) {
-        fprintf(stderr, "Failed to listen on port %d: %s\n", listen_port,
+        fprintf(stderr, "Failed to listen on port %d: %s\n", TCP_PORT,
                 strerror(errno));
         goto err1;
     }

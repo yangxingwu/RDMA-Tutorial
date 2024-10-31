@@ -9,9 +9,6 @@
 
 #include "ib.h"
 
-#define MSG_SIZE 4096
-#define TCP_PORT 12345
-
 int main() {
     struct ibv_context *context;
     struct ibv_pd *pd;
@@ -45,7 +42,7 @@ int main() {
     fprintf(stdout, "[%s at %d]: Protection Domain allocated\n", __FILE__,
             __LINE__);
 
-    // allocate memory
+    // register the memory region
     buf = (char *)malloc(MSG_SIZE);
     if (!buf) {
         fprintf(stderr, "Failed to allocate memory: %s\n", strerror(errno));
@@ -53,9 +50,10 @@ int main() {
         goto err2;
     }
 
-    // register the memory region
-    mr = ibv_reg_mr(pd, buf, MSG_SIZE, IBV_ACCESS_LOCAL_WRITE |
-                    IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+    mr = ibv_reg_mr(pd, buf, MSG_SIZE,
+                    IBV_ACCESS_LOCAL_WRITE |
+                    IBV_ACCESS_REMOTE_READ |
+                    IBV_ACCESS_REMOTE_WRITE);
     if (!mr) {
         fprintf(stderr, "Failed to register memory region: %s\n",
                 strerror(errno));
@@ -103,6 +101,20 @@ int main() {
         goto err6;
     }
 
+    // exchange QP info
+    local_qp_info.qp_num = qp->qp_num;
+    local_qp_info.lid = port_attr.lid;
+    memcpy(&local_qp_info.gid, &my_gid, sizeof(local_qp_info.gid));
+
+    if (ib_ctx_xchg_qp_info_as_server(local_qp_info, &remote_qp_info) < 0) {
+        fprintf(stderr, "exchange QP info failed\n");
+        ret = -1;
+        goto err6;
+    }
+
+    fprintf(stdout, "[%s at %d]: Queue Pair Info exchanged\n", __FILE__,
+            __LINE__);
+
     // transition the QP to the INIT state
     if (ib_modify_qp_to_init(qp)) {
         fprintf(stderr, "Failed to modify QP to INIT: %s\n", strerror(errno));
@@ -113,22 +125,7 @@ int main() {
     fprintf(stdout, "[%s at %d]: Queue Pair transit to INIT state\n", __FILE__,
             __LINE__);
 
-    // prepare local QP info
-    local_qp_info.qp_num = qp->qp_num;
-    local_qp_info.lid = port_attr.lid;
-    memcpy(&local_qp_info.gid, &my_gid, sizeof(local_qp_info.gid));
-
-    if (ib_ctx_xchg_qp_info_as_server(TCP_PORT, local_qp_info,
-                                   &remote_qp_info) < 0) {
-        fprintf(stderr, "exchange QP info failed\n");
-        ret = -1;
-        goto err6;
-    }
-
-    fprintf(stdout, "[%s at %d]: Queue Pair Info exchanged\n", __FILE__,
-            __LINE__);
-
-    // Transition the QP to the RTR state
+    // transition the QP to the RTR state
     if (ib_modify_qp_to_rtr(qp, port_attr.active_mtu, remote_qp_info)) {
         fprintf(stderr, "Failed to modify QP to RTR\n");
         ret = -1;
@@ -138,7 +135,7 @@ int main() {
     fprintf(stdout, "[%s at %d]: Queue Pair transit to RTR state\n", __FILE__,
             __LINE__);
 
-    // Transition the QP to the RTS state
+    // transition the QP to the RTS state
     if (ib_modify_qp_to_rts(qp)) {
         fprintf(stderr, "Failed to modify QP to RTS\n");
         ret = -1;

@@ -10,11 +10,6 @@
 
 #include "ib.h"
 
-#define MSG_SIZE 4096
-#define TCP_PORT 12345
-#define IB_PORT             1
-#define IB_GID_INDEX        3
-
 int main(int argc, char *argv[]) {
     struct ibv_context *context;
     struct ibv_pd *pd;
@@ -62,7 +57,7 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "[%s at %d]: Protection Domain allocated\n", __FILE__,
             __LINE__);
 
-    // allocate memory
+    // register the memory region
     buf = malloc(MSG_SIZE);
     if (!buf) {
         fprintf(stderr, "Failed to allocate memory: %s\n", strerror(errno));
@@ -70,9 +65,9 @@ int main(int argc, char *argv[]) {
         goto err2;
     }
 
-    // register the memory region
     mr = ibv_reg_mr(pd, buf, MSG_SIZE,
-                    IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
+                    IBV_ACCESS_LOCAL_WRITE |
+                    IBV_ACCESS_REMOTE_READ |
                     IBV_ACCESS_REMOTE_WRITE);
     if (!mr) {
         fprintf(stderr, "Failed to register memory region: %s\n",
@@ -121,17 +116,7 @@ int main(int argc, char *argv[]) {
         goto err6;
     }
 
-    // transition the QP to the INIT state
-    if (ib_modify_qp_to_init(qp)) {
-        fprintf(stderr, "Failed to modify QP to INIT: %s\n", strerror(errno));
-        ret = -1;
-        goto err6;
-    }
-
-    fprintf(stdout, "[%s at %d]: Queue Pair transit to INIT state\n", __FILE__,
-            __LINE__);
-
-    // prepare local QP info
+    // exchange QP info
     local_qp_info.qp_num = qp->qp_num;
     local_qp_info.lid = port_attr.lid;
     memcpy(&local_qp_info.gid, &my_gid, sizeof(local_qp_info.gid));
@@ -144,6 +129,16 @@ int main(int argc, char *argv[]) {
     }
 
     fprintf(stdout, "[%s at %d]: Queue Pair Info exchanged\n", __FILE__,
+            __LINE__);
+
+    // transition the QP to the INIT state
+    if (ib_modify_qp_to_init(qp)) {
+        fprintf(stderr, "Failed to modify QP to INIT: %s\n", strerror(errno));
+        ret = -1;
+        goto err6;
+    }
+
+    fprintf(stdout, "[%s at %d]: Queue Pair transit to INIT state\n", __FILE__,
             __LINE__);
 
     // transition the QP to the RTR state
