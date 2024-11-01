@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -156,6 +157,9 @@ int main() {
 
     int num_of_loops = 1;
     int total_loops = 10;
+    int num_of_cq;
+    bool signaled = false;
+    struct ibv_wc wc;
 
     for (; num_of_loops <= total_loops; num_of_loops++) {
         // wait for remote info
@@ -171,9 +175,11 @@ int main() {
         if (num_of_loops % 2 == 0) {
             ret = ib_post_write_signaled(send_buf, MSG_SIZE, mr->lkey, 0,
                                    remote_qp_info.rkey, remote_qp_info.raddr, qp);
+            signaled = true;
         } else {
             ret = ib_post_write_unsignaled(send_buf, MSG_SIZE, mr->lkey, 0,
                                      remote_qp_info.rkey, remote_qp_info.raddr, qp);
+            signaled = false;
         }
         if (ret != 0) {
             fprintf(stderr, "Failed to write to remote end for round %d: %s\n",
@@ -184,6 +190,13 @@ int main() {
 
         fprintf(stdout, "[%s at %d]: Message sent for round %d\n", __FILE__,
                 __LINE__, num_of_loops);
+
+        if (signaled) {
+            do {
+                num_of_cq = ibv_poll_cq(cq, 1, &wc);
+            } while (num_of_cq == 0);
+            signaled = false;
+        }
     }
 
 err6:

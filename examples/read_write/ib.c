@@ -103,7 +103,16 @@ struct ibv_qp *ib_create_qp(struct ibv_cq *cq, struct ibv_pd *pd) {
 
     qp_init_attr.send_cq            = cq;
     qp_init_attr.recv_cq            = cq;
-    qp_init_attr.cap.max_send_wr    = 1;
+    /*
+     * we are gona to use interleaved signaled/unsignaled write, and if one
+     * kept posting unsignaled sends, the send queue will eventually be full
+     * because none of these operations would be thought as completed and
+     * hence they remain in the send queue. so the cap.max_send_wr should be
+     * at least 2 and we will poll the completion queue once we choose the
+     * signaled write.
+     *
+     */
+    qp_init_attr.cap.max_send_wr    = 2;
     qp_init_attr.cap.max_recv_wr    = 1;
     qp_init_attr.cap.max_send_sge   = 1;
     qp_init_attr.cap.max_recv_sge   = 1;
@@ -244,7 +253,7 @@ int ib_ctx_xchg_qp_info_as_server(struct qp_info local_qp_info,
     }
 
     fprintf(stdout, "[%s at %d]: send QP info "
-            "[LID %#04x QPN %#06x RADDR %"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR 0x%"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] to %s\n", __FILE__,
             __LINE__,local_qp_info.lid, local_qp_info.qp_num, local_qp_info.raddr,
             local_qp_info.gid.raw[0], local_qp_info.gid.raw[1],
@@ -266,7 +275,7 @@ int ib_ctx_xchg_qp_info_as_server(struct qp_info local_qp_info,
     }
 
     fprintf(stdout, "[%s at %d]: receive QP info "
-            "[LID %#04x QPN %#06x RADDR %"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR 0x%"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] from %s\n", __FILE__,
             __LINE__, remote_qp_info->lid, remote_qp_info->qp_num, remote_qp_info->raddr,
             remote_qp_info->gid.raw[0], remote_qp_info->gid.raw[1],
@@ -323,7 +332,7 @@ int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
     }
 
     fprintf(stdout, "[%s at %d]: send QP info "
-            "[LID %#04x QPN %#06x RADDR %"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR 0x%"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] to %s\n", __FILE__,
             __LINE__,local_qp_info.lid, local_qp_info.qp_num, local_qp_info.raddr,
             local_qp_info.gid.raw[0], local_qp_info.gid.raw[1],
@@ -345,7 +354,7 @@ int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
     }
 
     fprintf(stdout, "[%s at %d]: receive QP info "
-            "[LID %#04x QPN %#06x RADDR %"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR 0x%"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] from %s\n", __FILE__,
             __LINE__, remote_qp_info->lid, remote_qp_info->qp_num, remote_qp_info->raddr,
             remote_qp_info->gid.raw[0], remote_qp_info->gid.raw[1],
