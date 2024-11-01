@@ -5,3 +5,4 @@ server.log
 *.diff
 *.patch
 compile_commands.json
+.cache/
