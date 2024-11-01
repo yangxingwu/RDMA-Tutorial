@@ -244,7 +244,7 @@ int ib_ctx_xchg_qp_info_as_server(struct qp_info local_qp_info,
     }
 
     fprintf(stdout, "[%s at %d]: send QP info "
-            "[LID %#04x QPN %#06x RADDR %"PRIu64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR %"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] to %s\n", __FILE__,
             __LINE__,local_qp_info.lid, local_qp_info.qp_num, local_qp_info.raddr,
             local_qp_info.gid.raw[0], local_qp_info.gid.raw[1],
@@ -266,7 +266,7 @@ int ib_ctx_xchg_qp_info_as_server(struct qp_info local_qp_info,
     }
 
     fprintf(stdout, "[%s at %d]: receive QP info "
-            "[LID %#04x QPN %#06x RADDR %"PRIu64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR %"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] from %s\n", __FILE__,
             __LINE__, remote_qp_info->lid, remote_qp_info->qp_num, remote_qp_info->raddr,
             remote_qp_info->gid.raw[0], remote_qp_info->gid.raw[1],
@@ -323,7 +323,7 @@ int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
     }
 
     fprintf(stdout, "[%s at %d]: send QP info "
-            "[LID %#04x QPN %#06x RADDR %"PRIu64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR %"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] to %s\n", __FILE__,
             __LINE__,local_qp_info.lid, local_qp_info.qp_num, local_qp_info.raddr,
             local_qp_info.gid.raw[0], local_qp_info.gid.raw[1],
@@ -345,7 +345,7 @@ int ib_ctx_xchg_qp_info_as_client(struct sockaddr_in *svr_addr,
     }
 
     fprintf(stdout, "[%s at %d]: receive QP info "
-            "[LID %#04x QPN %#06x RADDR %"PRIu64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
+            "[LID %#04x QPN %#06x RADDR %"PRIx64" GID %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:"
             "%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d] from %s\n", __FILE__,
             __LINE__, remote_qp_info->lid, remote_qp_info->qp_num, remote_qp_info->raddr,
             remote_qp_info->gid.raw[0], remote_qp_info->gid.raw[1],
